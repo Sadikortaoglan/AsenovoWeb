@@ -27,16 +27,13 @@ const WHATSAPP_NUMBER = '905300000000'
 function MarketingLogo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid h-11 w-11 place-items-center rounded-xl bg-slate-900 shadow-md">
-        <svg viewBox="0 0 64 64" className="h-8 w-8" aria-hidden="true">
-          <path d="M32 4 58 14 32 60 6 14Z" fill="#7c3aed" />
-          <path d="M16 18 28 30 18 30Z" fill="#38bdf8" />
-          <path d="M40 14 28 34h10l-6 16 18-24H40z" fill="#facc15" />
-        </svg>
+      <div className="relative h-11 w-11 overflow-hidden rounded-xl bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 shadow-md">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_60%)]" />
+        <div className="absolute inset-0 flex items-center justify-center text-lg font-extrabold tracking-tight text-white">A+</div>
       </div>
       <div>
         <div className="text-lg font-black leading-none text-slate-900">ASENOVO</div>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Akıllı Asansör Operasyon Platformu</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Asansör Takip Platformu</div>
       </div>
     </div>
   )
