@@ -1,21 +1,52 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { handleApiError, ApiErrorType } from './api-error-handler'
+import { resolveApiBaseUrl } from './api-base-url'
+import {
+  detectTenantFromHostname,
+  getAccessTokenKey,
+  getRefreshTokenKey,
+  syncTenantSession,
+} from './tenant'
 
-const isDevelopment = import.meta.env.MODE === 'development' || import.meta.env.DEV
-const API_BASE_URL = isDevelopment 
-  ? '/api'
-  : import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api'
+const API_BASE_URL = resolveApiBaseUrl()
+
+type UiErrorCode = 'TENANT_NOT_FOUND' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'RATE_LIMIT' | 'GENERIC'
+
+interface UiErrorPayload {
+  code: UiErrorCode
+  message: string
+  status?: number
+}
+
+const emitUiApiError = (payload: UiErrorPayload) => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent<UiErrorPayload>('app:api-error', { detail: payload }))
+}
+
+const getCurrentTenant = () => {
+  const { tenant } = detectTenantFromHostname()
+  syncTenantSession(tenant)
+  return tenant
+}
 
 export const tokenStorage = {
-  getAccessToken: () => localStorage.getItem('accessToken'),
-  getRefreshToken: () => localStorage.getItem('refreshToken'),
+  getAccessToken: () => {
+    const tenant = getCurrentTenant()
+    return localStorage.getItem(getAccessTokenKey(tenant))
+  },
+  getRefreshToken: () => {
+    const tenant = getCurrentTenant()
+    return localStorage.getItem(getRefreshTokenKey(tenant))
+  },
   setTokens: (accessToken: string, refreshToken: string) => {
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
+    const tenant = getCurrentTenant()
+    localStorage.setItem(getAccessTokenKey(tenant), accessToken)
+    localStorage.setItem(getRefreshTokenKey(tenant), refreshToken)
   },
   clearTokens: () => {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
+    const tenant = getCurrentTenant()
+    localStorage.removeItem(getAccessTokenKey(tenant))
+    localStorage.removeItem(getRefreshTokenKey(tenant))
   },
 }
 
@@ -69,14 +100,11 @@ apiClient.interceptors.request.use(
         if (cleanToken) {
           config.headers.Authorization = `Bearer ${cleanToken}`
         } else {
-          // Token is empty, clear storage and reject
           tokenStorage.clearTokens()
-          return Promise.reject(new Error('Authentication required. Please login.'))
+          delete config.headers.Authorization
         }
       } else {
-        // No token found, clear storage and reject
-        tokenStorage.clearTokens()
-        return Promise.reject(new Error('Authentication required. Please login.'))
+        delete config.headers.Authorization
       }
     } else {
       // Remove Authorization header for auth endpoints
@@ -117,8 +145,8 @@ apiClient.interceptors.response.use(
       _retry?: boolean
     }
 
-    const statusCode = error.response?.status
-    const isAuthError = statusCode === 401 || statusCode === 403
+    const responseStatus = error.response?.status
+    const isAuthError = responseStatus === 401 || responseStatus === 403
     const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/refresh')
 
     if (isAuthError && !originalRequest._retry && !isAuthEndpoint) {
@@ -141,18 +169,20 @@ apiClient.interceptors.response.use(
       const refreshToken = tokenStorage.getRefreshToken()
       if (!refreshToken) {
         tokenStorage.clearTokens()
-        alert('Oturum süreniz doldu. Lütfen tekrar giriş yapın.')
+        emitUiApiError({
+          code: 'UNAUTHORIZED',
+          status: 401,
+          message: 'Oturum süreniz doldu. Lütfen tekrar giriş yapın.',
+        })
         window.location.href = '/login'
         isRefreshing = false
         return Promise.reject(error)
       }
 
       try {
-        console.log('🔄 REFRESH TOKEN TRIGGERED', { statusCode, url: originalRequest?.url })
+        console.log('🔄 REFRESH TOKEN TRIGGERED', { statusCode: responseStatus, url: originalRequest?.url })
 
-        const refreshUrl = isDevelopment 
-          ? '/api/auth/refresh'
-          : `${API_BASE_URL}/auth/refresh`
+        const refreshUrl = `${API_BASE_URL}/auth/refresh`
         
         const response = await axios.post(refreshUrl, { refreshToken }, {
           headers: {
@@ -208,8 +238,11 @@ apiClient.interceptors.response.use(
         
         if (refreshStatusCode === 400 || refreshStatusCode === 401 || refreshStatusCode === 403 || !refreshToken) {
           tokenStorage.clearTokens()
-          
-          alert('Oturum süreniz doldu. Lütfen tekrar giriş yapın.')
+          emitUiApiError({
+            code: 'UNAUTHORIZED',
+            status: refreshStatusCode,
+            message: 'Oturum süreniz doldu. Lütfen tekrar giriş yapın.',
+          })
           
           window.location.href = '/login'
         }
@@ -228,6 +261,42 @@ apiClient.interceptors.response.use(
         message: apiError.message,
         statusCode: apiError.statusCode,
         url: originalRequest?.url,
+      })
+    }
+
+    const responseMessage =
+      (error.response?.data as any)?.message ||
+      (error.response?.data as any)?.error ||
+      apiError.message ||
+      ''
+    const normalizedMessage = String(responseMessage).toLowerCase()
+
+    if (
+      responseStatus === 404 &&
+      (normalizedMessage.includes('tenant_not_found') || normalizedMessage.includes('tenant not found'))
+    ) {
+      emitUiApiError({
+        code: 'TENANT_NOT_FOUND',
+        status: 404,
+        message: 'Tenant bulunamadı. Lütfen doğru alan adını kullanın.',
+      })
+    } else if (responseStatus === 401) {
+      emitUiApiError({
+        code: 'UNAUTHORIZED',
+        status: 401,
+        message: 'Oturum geçersiz. Lütfen tekrar giriş yapın.',
+      })
+    } else if (responseStatus === 403) {
+      emitUiApiError({
+        code: 'FORBIDDEN',
+        status: 403,
+        message: 'Bu işlem için yetkiniz bulunmuyor.',
+      })
+    } else if (responseStatus === 429) {
+      emitUiApiError({
+        code: 'RATE_LIMIT',
+        status: 429,
+        message: 'Çok fazla istek gönderildi. Lütfen kısa süre sonra tekrar deneyin.',
       })
     }
     

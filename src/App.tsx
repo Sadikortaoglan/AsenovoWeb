@@ -1,8 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { TenantProvider, useTenant } from './contexts/TenantContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { MainLayout } from './components/layout/MainLayout'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { TenantNotFoundScreen } from './components/TenantNotFoundScreen'
+import { GlobalApiErrorBanner } from './components/GlobalApiErrorBanner'
 import { Toaster } from './components/ui/toaster'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -37,7 +40,36 @@ import { ProposalsPage } from './modules/proposals/ProposalsPage'
 import { StatusDetectionReportsPage } from './modules/reports/StatusDetectionReportsPage'
 
 function AppRoutes() {
+  const { bootStatus, tenant, errorMessage, recheckTenantHealth } = useTenant()
   const { isAuthenticated, isLoading } = useAuth()
+
+  if (bootStatus === 'checking') {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-lg">Tenant kontrol ediliyor...</div>
+      </div>
+    )
+  }
+
+  if (bootStatus === 'not_found') {
+    return (
+      <TenantNotFoundScreen
+        tenant={tenant}
+        message={errorMessage}
+        onRetry={() => void recheckTenantHealth()}
+      />
+    )
+  }
+
+  if (bootStatus === 'error') {
+    return (
+      <TenantNotFoundScreen
+        tenant={tenant}
+        message={errorMessage || 'Tenant doğrulaması tamamlanamadı.'}
+        onRetry={() => void recheckTenantHealth()}
+      />
+    )
+  }
 
   if (isLoading) {
     return (
@@ -118,10 +150,13 @@ function AppRoutes() {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <AppRoutes />
-        <Toaster />
-      </AuthProvider>
+      <TenantProvider>
+        <AuthProvider>
+          <AppRoutes />
+          <GlobalApiErrorBanner />
+          <Toaster />
+        </AuthProvider>
+      </TenantProvider>
     </ErrorBoundary>
   )
 }
