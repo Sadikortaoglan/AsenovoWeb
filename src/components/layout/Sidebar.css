@@ -40,19 +40,21 @@
 }
 
 .sidebar-brand__logo {
-  width: 24px;
-  height: 24px;
-  max-height: 24px;
-  max-width: 24px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  max-height: 28px;
+  max-width: 28px;
+  padding: 3px;
+  border-radius: 8px;
   flex-shrink: 0;
-  object-fit: cover;
-  border: 1px solid var(--border-light);
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.24);
 }
 
 .sidebar-brand__avatar {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   flex-shrink: 0;
   display: inline-flex;

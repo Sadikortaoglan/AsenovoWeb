@@ -307,7 +307,14 @@ const readFromStorage = () => {
   const stores = [window.localStorage, window.sessionStorage]
   for (const store of stores) {
     const tenantName = store.getItem('tenantName') || store.getItem('tenant_name')
-    const tenantLogoUrl = store.getItem('tenantLogoUrl') || store.getItem('tenant_logo_url')
+    const tenantLogoUrl =
+      store.getItem('tenantLogoUrl') ||
+      store.getItem('tenant_logo_url') ||
+      store.getItem('tenantLogo') ||
+      store.getItem('tenant_logo') ||
+      store.getItem('logoUrl') ||
+      store.getItem('logo_url') ||
+      store.getItem('companyLogo')
     if (tenantName || tenantLogoUrl) {
       return { name: tenantName, logoUrl: tenantLogoUrl }
     }
