@@ -43,6 +43,8 @@ import { B2BUnitsPage } from './modules/cari/B2BUnitsPage'
 import { B2BUnitGroupsPage } from './modules/cari/B2BUnitGroupsPage'
 import { CurrenciesPage } from './modules/cari/CurrenciesPage'
 import { B2BUnitMePage } from './modules/cari/B2BUnitMePage'
+import { FacilitiesPage } from './modules/facilities/FacilitiesPage'
+import { FacilityFormPage } from './modules/facilities/FacilityFormPage'
 import { ForbiddenPage } from './pages/ForbiddenPage'
 
 function AppRoutes() {
@@ -160,6 +162,23 @@ function AppRoutes() {
           }
         />
         <Route path="currencies" element={<CurrenciesPage />} />
+        <Route path="facilities" element={<FacilitiesPage />} />
+        <Route
+          path="facilities/new"
+          element={
+            <ProtectedRoute requireAnyRole={['STAFF_USER']}>
+              <FacilityFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="facilities/:id/edit"
+          element={
+            <ProtectedRoute requireAnyRole={['STAFF_USER']}>
+              <FacilityFormPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="warnings" element={<WarningsPage />} />
         <Route path="parts" element={<PartsPage />} />
         <Route path="offers" element={<OffersPage />} />

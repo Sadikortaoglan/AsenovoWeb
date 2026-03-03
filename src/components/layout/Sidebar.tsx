@@ -118,6 +118,25 @@ export const menuItems: MenuItem[] = [
       },
     ],
   },
+  {
+    title: 'Tesisler(Binalar)',
+    icon: Building2,
+    roles: ['PATRON', 'PERSONEL', 'CARI_USER'] as const,
+    children: [
+      {
+        title: 'Tüm Tesisler(Binalar)',
+        href: '/facilities',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL', 'CARI_USER'] as const,
+      },
+      {
+        title: 'Tesis(Bina) Ekle',
+        href: '/facilities/new',
+        icon: PlusCircle,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+    ],
+  },
       {
         title: 'Bakım İşlemleri',
         icon: Wrench,
@@ -337,6 +356,7 @@ export function NavigationContent({ onNavigate, className }: NavigationContentPr
     if (pathname === href) return true
     if (href === '/elevator-labels' && pathname.startsWith('/elevator-labels/')) return true
     if (href === '/elevator-contracts' && pathname.startsWith('/elevator-contracts/')) return true
+    if (href === '/facilities' && pathname.startsWith('/facilities/')) return true
     return false
   }
 

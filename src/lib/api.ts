@@ -76,7 +76,9 @@ apiClient.interceptors.request.use(
     } else {
       config.headers['Content-Type'] = 'application/json'
     }
-    config.headers['Accept'] = 'application/json'
+    if (!config.headers['Accept']) {
+      config.headers['Accept'] = 'application/json'
+    }
     
     // Log request for maintenance-plans endpoint (for debugging)
     if (url.includes('/maintenance-plans') && config.method === 'post' && config.data) {
