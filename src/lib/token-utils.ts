@@ -5,7 +5,9 @@
 export interface TokenPayload {
   userId: number
   username: string
-  role: 'PATRON' | 'PERSONEL'
+  role: 'SYSTEM_ADMIN' | 'STAFF_ADMIN' | 'STAFF_USER' | 'CARI_USER'
+  userType?: 'SYSTEM_ADMIN' | 'STAFF' | 'CARI'
+  b2bUnitId?: number | null
   exp: number
   iat: number
 }
@@ -20,7 +22,9 @@ export function decodeToken(token: string): TokenPayload | null {
       return null
     }
     
-    const payload = JSON.parse(atob(parts[1]))
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = `${base64}${'='.repeat((4 - (base64.length % 4)) % 4)}`
+    const payload = JSON.parse(atob(padded))
     return payload as TokenPayload
   } catch (error) {
     return null

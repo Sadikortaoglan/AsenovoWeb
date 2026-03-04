@@ -77,12 +77,12 @@ export function MaintenancePlanningPage() {
     { id: 2, name: 'Yıllık Bakım', status: 'ACTIVE' },
   ]
 
-  // Fetch technicians (users with PERSONEL role)
+  // Fetch technicians (users with STAFF_USER role)
   const { data: technicians = [] } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
       const users = await userService.getAll()
-      return users.filter((u) => u.role === 'PERSONEL' && u.enabled !== false)
+      return users.filter((u) => u.role === 'STAFF_USER' && u.enabled !== false)
     },
   })
 

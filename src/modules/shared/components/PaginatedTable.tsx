@@ -9,11 +9,19 @@ import {
 } from '@/components/ui/table'
 import type { SpringPage } from '../types'
 import type { ReactNode } from 'react'
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 
 interface Column<T> {
   key: string
   header: string
   render: (row: T) => ReactNode
+  sortable?: boolean
+  sortKey?: string
+}
+
+export interface SortState {
+  field: string
+  direction: 'asc' | 'desc'
 }
 
 interface PaginatedTableProps<T> {
@@ -21,12 +29,44 @@ interface PaginatedTableProps<T> {
   columns: Column<T>[]
   loading?: boolean
   onPageChange: (nextPage: number) => void
+  sort?: SortState
+  onSortChange?: (next: SortState) => void
 }
 
-export function PaginatedTable<T>({ pageData, columns, loading, onPageChange }: PaginatedTableProps<T>) {
+export function PaginatedTable<T>({
+  pageData,
+  columns,
+  loading,
+  onPageChange,
+  sort,
+  onSortChange,
+}: PaginatedTableProps<T>) {
   const rows = pageData?.content ?? []
   const pageIndex = pageData?.number ?? 0
   const last = pageData?.last ?? true
+
+  const renderSortIcon = (column: Column<T>) => {
+    const field = column.sortKey || column.key
+    if (!sort || sort.field !== field) {
+      return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+    }
+    if (sort.direction === 'asc') {
+      return <ArrowUp className="h-3.5 w-3.5" />
+    }
+    return <ArrowDown className="h-3.5 w-3.5" />
+  }
+
+  const handleSortToggle = (column: Column<T>) => {
+    if (!column.sortable || !onSortChange) return
+
+    const field = column.sortKey || column.key
+    if (!sort || sort.field !== field) {
+      onSortChange({ field, direction: 'asc' })
+      return
+    }
+
+    onSortChange({ field, direction: sort.direction === 'asc' ? 'desc' : 'asc' })
+  }
 
   return (
     <div className="space-y-3">
@@ -35,7 +75,20 @@ export function PaginatedTable<T>({ pageData, columns, loading, onPageChange }: 
           <TableHeader>
             <TableRow>
               {columns.map((c) => (
-                <TableHead key={c.key}>{c.header}</TableHead>
+                <TableHead key={c.key}>
+                  {c.sortable ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 hover:text-foreground"
+                      onClick={() => handleSortToggle(c)}
+                    >
+                      <span>{c.header}</span>
+                      {renderSortIcon(c)}
+                    </button>
+                  ) : (
+                    c.header
+                  )}
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>

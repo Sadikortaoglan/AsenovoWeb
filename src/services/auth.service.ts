@@ -1,5 +1,6 @@
 import apiClient from '@/lib/api'
 import { unwrapResponse, type ApiResponse } from '@/lib/api-response'
+import { normalizeRole, type AppRole } from '@/lib/roles'
 
 export interface LoginRequest {
   username: string
@@ -9,18 +10,24 @@ export interface LoginRequest {
 export interface LoginResponseData {
   accessToken: string
   refreshToken: string
+  tokenType?: string
   userId: number
   username: string
-  role: 'PATRON' | 'PERSONEL'
+  role: string
+  userType?: string
+  b2bUnitId?: number | null
 }
 
 export interface LoginResponse {
   accessToken: string
   refreshToken: string
+  tokenType?: string
   user: {
     id: number
     username: string
-    role: 'PATRON' | 'PERSONEL'
+    role: AppRole
+    userType?: string
+    b2bUnitId?: number | null
   }
 }
 
@@ -47,10 +54,13 @@ export const authService = {
       const loginResponse: LoginResponse = {
         accessToken: responseData.accessToken,
         refreshToken: responseData.refreshToken,
+        tokenType: responseData.tokenType,
         user: {
           id: responseData.userId,
           username: responseData.username,
-          role: responseData.role,
+          role: normalizeRole(responseData.role),
+          userType: responseData.userType,
+          b2bUnitId: responseData.b2bUnitId,
         },
       }
       
@@ -71,4 +81,3 @@ export const authService = {
   logout: () => {
   },
 }
-

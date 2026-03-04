@@ -43,11 +43,11 @@ export function UsersPage() {
 
   const usersArray = Array.isArray(users) ? users : []
   
-  const activePatrons = usersArray.filter(u => u.role === 'PATRON' && (u.enabled || u.active))
-  const isLastActivePatron = (user: User) => 
-    user.role === 'PATRON' && 
-    (user.enabled || user.active) && 
-    activePatrons.length === 1
+  const activeSystemAdmins = usersArray.filter((u) => u.role === 'SYSTEM_ADMIN' && (u.enabled || u.active))
+  const isLastActiveSystemAdmin = (user: User) =>
+    user.role === 'SYSTEM_ADMIN' &&
+    (user.enabled || user.active) &&
+    activeSystemAdmins.length === 1
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => userService.update(id, { enabled: false }),
@@ -85,7 +85,7 @@ export function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Kullanıcılar</h1>
-          <p className="text-muted-foreground">Sistem kullanıcılarının yönetimi (PATRON Only)</p>
+          <p className="text-muted-foreground">Sistem kullanıcılarının yönetimi (SYSTEM_ADMIN/STAFF_ADMIN)</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -135,7 +135,7 @@ export function UsersPage() {
               mobileLabel: 'Rol',
               mobilePriority: 9,
               render: (user: User) => (
-                      <Badge variant={user.role === 'PATRON' ? 'default' : 'secondary'}>
+                      <Badge variant={user.role === 'SYSTEM_ADMIN' ? 'default' : 'secondary'}>
                         {user.role}
                       </Badge>
               ),
@@ -170,12 +170,12 @@ export function UsersPage() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                  {isLastActivePatron(user) ? (
+                  {isLastActiveSystemAdmin(user) ? (
                     <Button
                       variant="ghost"
                       size="icon"
                       disabled
-                      title="En az bir aktif PATRON bulunmalıdır."
+                      title="En az bir aktif SYSTEM_ADMIN bulunmalıdır."
                       className="h-11 w-11 sm:h-10 sm:w-10"
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
@@ -227,24 +227,30 @@ function UserFormDialog({
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    role: 'PERSONEL' as 'PATRON' | 'PERSONEL',
+    role: 'STAFF_USER' as 'SYSTEM_ADMIN' | 'STAFF_ADMIN' | 'STAFF_USER',
     enabled: true,
   })
   const { toast } = useToast()
+  const normalizeEditableRole = (role?: User['role']) => {
+    if (role === 'SYSTEM_ADMIN' || role === 'STAFF_ADMIN' || role === 'STAFF_USER') {
+      return role
+    }
+    return 'STAFF_USER'
+  }
 
   useEffect(() => {
     if (user) {
       setFormData({
         username: user.username || '',
         password: '',
-        role: user.role || 'PERSONEL',
+        role: normalizeEditableRole(user.role),
         enabled: user.enabled ?? true,
       })
     } else {
       setFormData({
         username: '',
         password: '',
-        role: 'PERSONEL',
+        role: 'STAFF_USER',
         enabled: true,
       })
     }
@@ -357,7 +363,7 @@ function UserFormDialog({
               <Label htmlFor="role">Rol *</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value: 'PATRON' | 'PERSONEL') =>
+                onValueChange={(value: 'SYSTEM_ADMIN' | 'STAFF_ADMIN' | 'STAFF_USER') =>
                   setFormData({ ...formData, role: value })
                 }
               >
@@ -365,8 +371,9 @@ function UserFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PATRON">PATRON</SelectItem>
-                  <SelectItem value="PERSONEL">PERSONEL</SelectItem>
+                  <SelectItem value="SYSTEM_ADMIN">SYSTEM_ADMIN</SelectItem>
+                  <SelectItem value="STAFF_ADMIN">STAFF_ADMIN</SelectItem>
+                  <SelectItem value="STAFF_USER">STAFF_USER</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -379,28 +386,28 @@ function UserFormDialog({
                     setFormData({ ...formData, enabled: value === 'true' })
                   }
                   disabled={(() => {
-                    const activePatrons = usersArray.filter(u => 
-                      u.role === 'PATRON' && 
+                    const activeSystemAdmins = usersArray.filter(u => 
+                      u.role === 'SYSTEM_ADMIN' && 
                       (u.enabled || u.active) && 
                       u.id !== user.id
                     )
-                    return user.role === 'PATRON' && 
+                    return user.role === 'SYSTEM_ADMIN' && 
                            (user.enabled || user.active) && 
-                           activePatrons.length === 0
+                           activeSystemAdmins.length === 0
                   })()}
                 >
                   <SelectTrigger 
                     className="w-full"
                     title={(() => {
-                      const activePatrons = usersArray.filter(u => 
-                        u.role === 'PATRON' && 
+                      const activeSystemAdmins = usersArray.filter(u => 
+                        u.role === 'SYSTEM_ADMIN' && 
                         (u.enabled || u.active) && 
                         u.id !== user.id
                       )
-                      if (user.role === 'PATRON' && 
+                      if (user.role === 'SYSTEM_ADMIN' && 
                           (user.enabled || user.active) && 
-                          activePatrons.length === 0) {
-                        return 'En az bir aktif PATRON bulunmalıdır.'
+                          activeSystemAdmins.length === 0) {
+                        return 'En az bir aktif SYSTEM_ADMIN bulunmalıdır.'
                       }
                       return ''
                     })()}
@@ -428,4 +435,3 @@ function UserFormDialog({
     </DialogContent>
   )
 }
-

@@ -11,23 +11,23 @@ export function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const { login, isAuthenticated } = useAuth()
+  const { login, isAuthenticated, getDefaultRoute } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
 
   // Login başarılı olduğunda otomatik yönlendirme
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true })
+      navigate(getDefaultRoute(), { replace: true })
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, navigate, getDefaultRoute])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      await login({ username, password })
+      await login({ username: username.trim(), password })
       toast({
         title: 'Giriş Başarılı',
         description: 'Yönetim paneline yönlendiriliyorsunuz...',

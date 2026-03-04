@@ -2,11 +2,21 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import { authService, type LoginRequest } from '@/services/auth.service'
 import { tokenStorage } from '@/lib/api'
 import { applyTenantTheme, extractTenantBrandColor } from '@/lib/theme'
+import {
+  getDefaultRouteForRole,
+  hasAnyRole as roleHasAnyRole,
+  normalizeRole,
+  roleSatisfies,
+  type AnyRole,
+  type AppRole,
+} from '@/lib/roles'
 
 interface User {
   id: number
   username: string
-  role: 'PATRON' | 'PERSONEL'
+  role: AppRole
+  userType?: string
+  b2bUnitId?: number | null
 }
 
 interface AuthContextType {
@@ -15,7 +25,9 @@ interface AuthContextType {
   isLoading: boolean
   login: (credentials: LoginRequest) => Promise<void>
   logout: () => void
-  hasRole: (role: 'PATRON' | 'PERSONEL') => boolean
+  hasRole: (role: AnyRole) => boolean
+  hasAnyRole: (roles: readonly AnyRole[]) => boolean
+  getDefaultRoute: () => string
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -24,18 +36,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
+    try {
+      const parts = token.split('.')
+      if (parts.length !== 3) return null
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+      const padded = `${base64}${'='.repeat((4 - (base64.length % 4)) % 4)}`
+      return JSON.parse(atob(padded))
+    } catch {
+      return null
+    }
+  }
+
   useEffect(() => {
     const token = tokenStorage.getAccessToken()
     if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        applyTenantTheme(extractTenantBrandColor(payload))
+      const payload = decodeJwtPayload(token)
+      if (payload) {
+        applyTenantTheme(extractTenantBrandColor(payload as Record<string, any>))
         setUser({
-          id: payload.userId || payload.sub || 0,
-          username: payload.username || payload.sub || '',
-          role: payload.role || 'PERSONEL',
+          id: Number(payload.userId || payload.sub || 0),
+          username: String(payload.username || payload.sub || ''),
+          role: normalizeRole(String(payload.role || 'STAFF_USER')),
+          userType: payload.userType ? String(payload.userType) : undefined,
+          b2bUnitId: payload.b2bUnitId != null ? Number(payload.b2bUnitId) : null,
         })
-      } catch (error) {
+      } else {
         tokenStorage.clearTokens()
         applyTenantTheme(null)
       }
@@ -46,74 +72,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (credentials: LoginRequest) => {
-    try {
-      const response: any = await authService.login(credentials)
-      
-      if (!response) {
-        throw new Error('Sunucudan yanıt alınamadı')
-      }
-
-      let accessToken = response.accessToken || response.token || response.access_token || response['accessToken']
-      let refreshToken = response.refreshToken || response.refresh_token || response.refreshToken || accessToken
-      let user = response.user || response.userInfo || response.userData || response
-
-      if (!accessToken && response.data) {
-        accessToken = response.data.accessToken || response.data.token
-        refreshToken = response.data.refreshToken || response.data.refresh_token || accessToken
-        user = response.data.user || response.data
-      }
-
-      if (!accessToken && (response as any).body) {
-        const body = (response as any).body
-        accessToken = body.accessToken || body.token
-        refreshToken = body.refreshToken || body.refresh_token || accessToken
-        user = body.user || body
-      }
-
-      if (!accessToken) {
-        throw new Error('Token alınamadı')
-      }
-
-      let username = user?.username || user?.userName || user?.name
-      let role = user?.role || 'PERSONEL'
-      let userId = user?.id || user?.userId || 0
-
-      if (!username && accessToken) {
-        try {
-          const payload = JSON.parse(atob(accessToken.split('.')[1]))
-          applyTenantTheme(extractTenantBrandColor(payload))
-          username = payload.username || payload.sub || credentials.username
-          role = payload.role || 'PERSONEL'
-          userId = payload.userId || payload.sub || 0
-        } catch (parseError) {
-          username = credentials.username
-          role = 'PERSONEL'
-          userId = 0
-          applyTenantTheme(extractTenantBrandColor(user))
-        }
-      } else {
-        applyTenantTheme(extractTenantBrandColor(user))
-      }
-
-      if (!username) {
-        throw new Error('Kullanıcı adı alınamadı')
-      }
-
-      tokenStorage.setTokens(accessToken, refreshToken || accessToken)
-      
-      const userRole: 'PATRON' | 'PERSONEL' = 
-        (typeof role === 'string' && role.toUpperCase() === 'PATRON') ? 'PATRON' : 'PERSONEL'
-      
-      const userData: User = {
-        id: userId,
-        username: username,
-        role: userRole,
-      }
-      
-      setUser(userData)
-    } catch (error) {
-      throw error
+    const response = await authService.login(credentials)
+    if (!response?.accessToken) {
+      throw new Error('Token alınamadı')
     }
+
+    tokenStorage.setTokens(response.accessToken, response.refreshToken || response.accessToken)
+
+    const payload = decodeJwtPayload(response.accessToken)
+    applyTenantTheme(extractTenantBrandColor((payload as Record<string, any>) || (response.user as any)))
+
+    const userData: User = {
+      id: response.user.id || Number(payload?.userId || payload?.sub || 0),
+      username: response.user.username || String(payload?.username || payload?.sub || credentials.username),
+      role: normalizeRole(response.user.role || String(payload?.role || 'STAFF_USER')),
+      userType: response.user.userType || (payload?.userType ? String(payload.userType) : undefined),
+      b2bUnitId:
+        response.user.b2bUnitId != null
+          ? response.user.b2bUnitId
+          : payload?.b2bUnitId != null
+            ? Number(payload.b2bUnitId)
+            : null,
+    }
+
+    setUser(userData)
   }
 
   const logout = () => {
@@ -123,10 +105,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authService.logout()
   }
 
-  const hasRole = (role: 'PATRON' | 'PERSONEL'): boolean => {
+  const hasRole = (role: AnyRole): boolean => {
     if (!user) return false
-    if (user.role === 'PATRON') return true
-    return user.role === role
+    return roleSatisfies(user.role, role)
+  }
+
+  const hasAnyRole = (roles: readonly AnyRole[]): boolean => {
+    if (!user) return false
+    return roleHasAnyRole(user.role, roles)
+  }
+
+  const getDefaultRoute = (): string => {
+    return getDefaultRouteForRole(user?.role)
   }
 
   return (
@@ -138,6 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         hasRole,
+        hasAnyRole,
+        getDefaultRoute,
       }}
     >
       {children}

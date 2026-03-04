@@ -136,11 +136,11 @@ ${fullRequest.body || '{}'}
           const payload = JSON.parse(atob(token.split('.')[1]))
           if (payload.exp && Date.now() / 1000 > payload.exp) {
             console.error('    3. ❌ Token is EXPIRED')
-          } else if (payload.role !== 'PATRON' && payload.role !== 'PERSONEL') {
+          } else if (!['SYSTEM_ADMIN', 'STAFF_ADMIN', 'STAFF_USER', 'CARI_USER'].includes(payload.role)) {
             console.error('    4. ❌ Invalid role in token:', payload.role)
           } else {
             console.error('    5. ❓ Token looks valid - check backend permissions/role requirements')
-            console.error('    6. ❓ Check if endpoint requires specific role (PATRON vs PERSONEL)')
+            console.error('    6. ❓ Check if endpoint requires specific role (SYSTEM_ADMIN/STAFF_ADMIN/STAFF_USER/CARI_USER)')
             console.error('    7. ❓ Check CORS configuration')
           }
         } catch (e) {

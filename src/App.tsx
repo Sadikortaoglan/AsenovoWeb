@@ -39,11 +39,18 @@ import { PaymentTransactionsPage } from './modules/payments/PaymentTransactionsP
 import { StocksPage } from './modules/stocks/StocksPage'
 import { ProposalsPage } from './modules/proposals/ProposalsPage'
 import { StatusDetectionReportsPage } from './modules/reports/StatusDetectionReportsPage'
+import { B2BUnitsPage } from './modules/cari/B2BUnitsPage'
+import { B2BUnitGroupsPage } from './modules/cari/B2BUnitGroupsPage'
+import { CurrenciesPage } from './modules/cari/CurrenciesPage'
+import { B2BUnitMePage } from './modules/cari/B2BUnitMePage'
+import { FacilitiesPage } from './modules/facilities/FacilitiesPage'
+import { FacilityFormPage } from './modules/facilities/FacilityFormPage'
+import { ForbiddenPage } from './pages/ForbiddenPage'
 import { QrCodesPage } from './modules/qr-codes/QrCodesPage'
 
 function AppRoutes() {
   const { bootStatus, tenant, errorMessage, recheckTenantHealth, isMarketingHost } = useTenant()
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, getDefaultRoute } = useAuth()
 
   if (isMarketingHost) {
     return <MarketingSiteRoutes />
@@ -91,12 +98,13 @@ function AppRoutes() {
         path="/login"
         element={
           isAuthenticated && !isLoading ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to={getDefaultRoute()} replace />
           ) : (
             <LoginPage />
           )
         }
       />
+      <Route path="/forbidden" element={<ForbiddenPage />} />
       <Route
         path="/"
         element={
@@ -105,7 +113,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to={getDefaultRoute()} replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="elevators" element={<ElevatorsPage />} />
         <Route path="elevators/:id" element={<ElevatorDetailPage />} />
@@ -130,6 +138,48 @@ function AppRoutes() {
         <Route path="stocks" element={<StocksPage />} />
         <Route path="proposals" element={<ProposalsPage />} />
         <Route path="reports/status-detections" element={<StatusDetectionReportsPage />} />
+        <Route
+          path="b2bunits"
+          element={
+            <ProtectedRoute requireAnyRole={['STAFF_USER']}>
+              <B2BUnitsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="b2bunits/me"
+          element={
+            <ProtectedRoute requireRole="CARI_USER">
+              <B2BUnitMePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="b2bunit-groups"
+          element={
+            <ProtectedRoute requireAnyRole={['STAFF_USER']}>
+              <B2BUnitGroupsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="currencies" element={<CurrenciesPage />} />
+        <Route path="facilities" element={<FacilitiesPage />} />
+        <Route
+          path="facilities/new"
+          element={
+            <ProtectedRoute requireAnyRole={['STAFF_USER']}>
+              <FacilityFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="facilities/:id/edit"
+          element={
+            <ProtectedRoute requireAnyRole={['STAFF_USER']}>
+              <FacilityFormPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="qr-codes" element={<QrCodesPage />} />
         <Route path="warnings" element={<WarningsPage />} />
         <Route path="parts" element={<PartsPage />} />
@@ -143,7 +193,7 @@ function AppRoutes() {
         <Route
           path="users"
           element={
-            <ProtectedRoute requireRole="PATRON">
+            <ProtectedRoute requireAnyRole={['SYSTEM_ADMIN', 'STAFF_ADMIN']}>
               <UsersPage />
             </ProtectedRoute>
           }

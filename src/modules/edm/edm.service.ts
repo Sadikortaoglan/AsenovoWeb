@@ -54,8 +54,13 @@ function emptyPage<T>(page: number, size: number): SpringPage<T> {
     first: true,
     last: true,
     numberOfElements: 0,
-    empty: true,
+  empty: true,
   }
+}
+
+interface EInvoiceQueryResponse {
+  eInvoiceUser: boolean
+  message: string
 }
 
 export const edmService = {
@@ -87,9 +92,23 @@ export const edmService = {
       .then((r) => unwrapResponse(r.data))
   },
   validateVkn(value: string) {
+    const taxNumber = value?.trim()
+    if (!taxNumber) {
+      return Promise.resolve({
+        valid: false,
+        type: 'INVALID',
+        message: 'VKN/TCKN değeri gereklidir.',
+      } as VknValidationResponse)
+    }
+
     return apiClient
-      .get<ApiResponse<VknValidationResponse>>('/edm/vkn-tckn/validate', { params: { value } })
+      .get<ApiResponse<EInvoiceQueryResponse>>('/einvoice/query', { params: { taxNumber } })
       .then((r) => unwrapResponse(r.data))
+      .then((response) => ({
+        valid: true,
+        type: response.eInvoiceUser ? 'E_FATURA' : 'E_ARSIV',
+        message: response.message || 'Sorgu tamamlandı.',
+      }))
   },
   async getSettings() {
     try {

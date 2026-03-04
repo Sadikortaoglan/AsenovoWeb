@@ -1,13 +1,22 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import type { AnyRole } from '@/lib/roles'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requireRole?: 'PATRON' | 'PERSONEL'
+  requireRole?: AnyRole
+  requireAnyRole?: readonly AnyRole[]
 }
 
-export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, hasRole } = useAuth()
+const CARI_ALLOWED_PREFIXES = ['/b2bunits/me', '/facilities', '/forbidden']
+
+function isCariAllowedPath(pathname: string): boolean {
+  return CARI_ALLOWED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+}
+
+export function ProtectedRoute({ children, requireRole, requireAnyRole }: ProtectedRouteProps) {
+  const { isAuthenticated, isLoading, hasRole, hasAnyRole, user } = useAuth()
+  const location = useLocation()
 
   if (isLoading) {
     return (
@@ -22,13 +31,16 @@ export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
   }
 
   if (requireRole && !hasRole(requireRole)) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-lg text-red-600">Bu sayfaya erişim yetkiniz yok.</div>
-      </div>
-    )
+    return <Navigate to="/forbidden" replace />
+  }
+
+  if (requireAnyRole && !hasAnyRole(requireAnyRole)) {
+    return <Navigate to="/forbidden" replace />
+  }
+
+  if (user?.role === 'CARI_USER' && !isCariAllowedPath(location.pathname)) {
+    return <Navigate to="/forbidden" replace />
   }
 
   return <>{children}</>
 }
-

@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
 import { dashboardService } from '@/services/dashboard.service'
+import type { AnyRole } from '@/lib/roles'
 import {
   LayoutDashboard,
   Building2,
@@ -41,8 +42,9 @@ type MenuItem = {
   title: string
   href?: string
   icon: React.ComponentType<{ className?: string }>
-  roles: readonly ('PATRON' | 'PERSONEL')[]
+  roles: readonly AnyRole[]
   children?: MenuItem[]
+  disabled?: boolean
 }
 
 export const menuItems: MenuItem[] = [
@@ -73,6 +75,68 @@ export const menuItems: MenuItem[] = [
         title: 'Asansör Sözleşmeleri',
         href: '/elevator-contracts',
         icon: FileSignature,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+    ],
+  },
+  {
+    title: 'Cari Kartlar',
+    icon: Users,
+    roles: ['PATRON', 'PERSONEL', 'CARI_USER'] as const,
+    children: [
+      {
+        title: 'Tüm Cariler',
+        href: '/b2bunits',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Borçlu Cariler',
+        icon: AlertCircle,
+        roles: ['PATRON', 'PERSONEL'] as const,
+        disabled: true,
+      },
+      {
+        title: 'Alacaklı Cariler',
+        icon: AlertCircle,
+        roles: ['PATRON', 'PERSONEL'] as const,
+        disabled: true,
+      },
+      {
+        title: 'Cari Gruplar',
+        href: '/b2bunit-groups',
+        icon: Settings,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Para Birimleri',
+        href: '/currencies',
+        icon: Wallet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Cari Bilgilerim',
+        href: '/b2bunits/me',
+        icon: FileSearch,
+        roles: ['CARI_USER'] as const,
+      },
+    ],
+  },
+  {
+    title: 'Tesisler(Binalar)',
+    icon: Building2,
+    roles: ['PATRON', 'PERSONEL', 'CARI_USER'] as const,
+    children: [
+      {
+        title: 'Tüm Tesisler(Binalar)',
+        href: '/facilities',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL', 'CARI_USER'] as const,
+      },
+      {
+        title: 'Tesis(Bina) Ekle',
+        href: '/facilities/new',
+        icon: PlusCircle,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
     ],
@@ -534,6 +598,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
     if (pathname === href) return true
     if (href === '/elevator-labels' && pathname.startsWith('/elevator-labels/')) return true
     if (href === '/elevator-contracts' && pathname.startsWith('/elevator-contracts/')) return true
+    if (href === '/facilities' && pathname.startsWith('/facilities/')) return true
     return false
   }
 
@@ -618,6 +683,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
   }
 
   const renderMenuItem = (item: MenuItem, level = 0) => {
+    const Icon = item.icon
     const hasChildren = Boolean(item.children?.length)
     const isExpanded = expandedMenu === item.title
     const isActive = item.href ? activeHref === item.href : false
@@ -645,6 +711,20 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
           onToggle={() => toggleMenu(item.title)}
           childrenContent={visibleChildren.map((child) => renderMenuItem(child, level + 1))}
         />
+      )
+    }
+
+    if (item.disabled || !item.href) {
+      return (
+        <div key={item.title} className={cn('sidebar-item', level > 0 && 'sidebar-item--nested', 'sidebar-item--disabled')}>
+          <span className="sidebar-item__main">
+            <Icon className="sidebar-item__icon" />
+            <span className="sidebar-item__title">{item.title}</span>
+          </span>
+          <span className="sidebar-item__end">
+            <span className="sidebar-badge">Yakında</span>
+          </span>
+        </div>
       )
     }
 
