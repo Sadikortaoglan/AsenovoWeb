@@ -29,6 +29,17 @@ const getCurrentTenant = () => {
   return tenant
 }
 
+const getTenantContextHeaders = () => {
+  if (typeof window === 'undefined') return {}
+
+  const tenantInfo = detectTenantFromHostname()
+  return {
+    'X-Tenant': tenantInfo.tenant,
+    'X-Tenant-Host': window.location.hostname,
+    'X-App-Env': String(import.meta.env.VITE_APP_ENV || 'development'),
+  }
+}
+
 export const tokenStorage = {
   getAccessToken: () => {
     const tenant = getCurrentTenant()
@@ -85,6 +96,11 @@ apiClient.interceptors.request.use(
     if (!hasAcceptHeader) {
       config.headers['Accept'] = 'application/json'
     }
+
+    const tenantHeaders = getTenantContextHeaders()
+    Object.entries(tenantHeaders).forEach(([key, value]) => {
+      config.headers[key] = value
+    })
     
     // Log request for maintenance-plans endpoint (for debugging)
     if (url.includes('/maintenance-plans') && config.method === 'post' && config.data) {
