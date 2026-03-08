@@ -43,10 +43,50 @@ function emptyPage<T>(page: number, size: number): SpringPage<T> {
   }
 }
 
+function resolveTenantApiBaseUrl(): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  return `${window.location.origin}/api`
+}
+
+function normalizePageResponse<T>(payload: unknown, page: number, size: number): SpringPage<T> {
+  const unwrapped = unwrapResponse(payload as ApiResponse<SpringPage<T>> | SpringPage<T>, true)
+
+  if (unwrapped && typeof unwrapped === 'object' && Array.isArray((unwrapped as SpringPage<T>).content)) {
+    return unwrapped as SpringPage<T>
+  }
+
+  if (Array.isArray(unwrapped)) {
+    const content = unwrapped as T[]
+    return {
+      content,
+      totalPages: 1,
+      totalElements: content.length,
+      size,
+      number: page,
+      first: page <= 0,
+      last: true,
+      numberOfElements: content.length,
+      empty: content.length === 0,
+    }
+  }
+
+  return emptyPage<T>(page, size)
+}
+
 export const elevatorDocumentsService = {
   async getLabels(page: number, size: number, elevatorId?: number): Promise<SpringPage<ElevatorLabel>> {
     try {
-      return await getPage<ElevatorLabel>('/elevator-labels', { page, size, elevatorId })
+      const cleanedParams = Object.fromEntries(
+        Object.entries({ page, size, elevatorId }).filter(([, value]) => {
+          if (value === undefined || value === null) return false
+          return true
+        })
+      )
+      const { data } = await apiClient.get<ApiResponse<SpringPage<ElevatorLabel>> | SpringPage<ElevatorLabel>>('/elevator-labels', {
+        baseURL: resolveTenantApiBaseUrl(),
+        params: cleanedParams,
+      })
+      return normalizePageResponse<ElevatorLabel>(data, page, size)
     } catch (error: any) {
       if (isMissingEndpointError(error)) return emptyPage<ElevatorLabel>(page, size)
       throw error

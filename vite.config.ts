@@ -5,7 +5,7 @@ import path from 'node:path'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const devProxyTarget = env.VITE_DEV_PROXY_TARGET || 'http://localhost:8081'
+  const devProxyTarget = env.VITE_DEV_PROXY_TARGET || 'http://localhost:8080'
 
   return {
     plugins: [react()],
@@ -15,7 +15,21 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      allowedHosts: ['.sara.local', '.asenovo.local', 'asenovo.local', 'www.asenovo.local', 'localhost', '127.0.0.1'],
+      host: true,
+      port: 5173,
+      strictPort: true,
+      allowedHosts: [
+        'asenovo.local',
+        'www.asenovo.local',
+        'api.asenovo.local',
+        'default.asenovo.local',
+        'tenant1.asenovo.local',
+        'tenant2.asenovo.local',
+        'tenant3.asenovo.local',
+        '.asenovo.local',
+        'localhost',
+        '127.0.0.1',
+      ],
       proxy: {
         '/api': {
           target: devProxyTarget,

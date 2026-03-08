@@ -66,7 +66,7 @@
   // 3. Check API Configuration
   console.log('\n3️⃣ API CONFIGURATION:')
   const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  const apiBaseUrl = isDev ? '/api' : (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:8080/api')
+  const apiBaseUrl = '/api'
   console.log('  - Environment:', isDev ? 'Development' : 'Production')
   console.log('  - API Base URL:', apiBaseUrl)
   console.log('  - Full URL:', `${apiBaseUrl}/elevators`)
