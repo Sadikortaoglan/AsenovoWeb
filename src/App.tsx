@@ -40,6 +40,7 @@ import { StocksPage } from './modules/stocks/StocksPage'
 import { ProposalsPage } from './modules/proposals/ProposalsPage'
 import { StatusDetectionReportsPage } from './modules/reports/StatusDetectionReportsPage'
 import { B2BUnitsPage } from './modules/cari/B2BUnitsPage'
+import { B2BUnitDetailPage } from './modules/cari/B2BUnitDetailPage'
 import { B2BUnitGroupsPage } from './modules/cari/B2BUnitGroupsPage'
 import { CurrenciesPage } from './modules/cari/CurrenciesPage'
 import { B2BUnitMePage } from './modules/cari/B2BUnitMePage'
@@ -143,6 +144,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute requireAnyRole={['STAFF_USER']}>
               <B2BUnitsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="b2b-units/:id"
+          element={
+            <ProtectedRoute requireAnyRole={['SYSTEM_ADMIN', 'STAFF_ADMIN', 'STAFF_USER', 'CARI_USER']}>
+              <B2BUnitDetailPage />
             </ProtectedRoute>
           }
         />

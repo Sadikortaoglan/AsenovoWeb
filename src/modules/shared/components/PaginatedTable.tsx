@@ -65,6 +65,7 @@ interface PaginatedTableProps<T> {
   sort?: SortState
   onSortChange?: (next: SortState) => void
   tableTitle?: string
+  emptyMessage?: string
 }
 
 export function PaginatedTable<T>({
@@ -75,6 +76,7 @@ export function PaginatedTable<T>({
   sort,
   onSortChange,
   tableTitle = 'datatable',
+  emptyMessage = 'Kayıt yok',
 }: PaginatedTableProps<T>) {
   const rows = pageData?.content ?? []
   const pageIndex = pageData?.number ?? 0
@@ -322,7 +324,7 @@ export function PaginatedTable<T>({
             )}
             {!loading && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={columns.length}>Kayıt yok</TableCell>
+                <TableCell colSpan={columns.length}>{emptyMessage}</TableCell>
               </TableRow>
             )}
             {!loading && rows.map((row, i) => (

@@ -38,6 +38,50 @@ export interface B2BUnitFormPayload {
   portalPasswordHash?: string
 }
 
+export type B2BUnitDetailMenuKey =
+  | 'filter'
+  | 'invoice'
+  | 'accountTransactions'
+  | 'collection'
+  | 'payment'
+  | 'reporting'
+
+export interface B2BUnitDetailMenuItem {
+  key: B2BUnitDetailMenuKey
+  label: string
+}
+
+export interface B2BUnitDetailSummary {
+  totalIncome: number
+  totalExpense: number
+  totalBalance: number
+}
+
+export interface B2BUnitDetail {
+  id: number
+  code?: string | null
+  name: string
+  email?: string | null
+  phone?: string | null
+  taxNumber?: string | null
+  taxOffice?: string | null
+  address?: string | null
+  status?: string | null
+  createdAt?: string
+  updatedAt?: string
+  menus: B2BUnitDetailMenuItem[]
+  summary?: B2BUnitDetailSummary
+}
+
+export interface B2BUnitTransaction {
+  transactionDate: string
+  transactionType: string
+  debit: number
+  credit: number
+  balance: number
+  description?: string | null
+}
+
 export interface B2BUnitGroup {
   id?: number
   name: string
@@ -58,6 +102,50 @@ interface ListB2BUnitsParams {
   sort: string
 }
 
+interface ListB2BUnitTransactionsParams {
+  startDate?: string
+  endDate?: string
+  page: number
+  size: number
+  search?: string
+  sort?: string
+}
+
+interface B2BUnitDetailResponse {
+  id?: number | null
+  code?: string | null
+  name?: string | null
+  email?: string | null
+  phone?: string | null
+  taxNumber?: string | null
+  taxOffice?: string | null
+  address?: string | null
+  status?: string | null
+  createdAt?: string
+  updatedAt?: string
+  menus?: Array<{ key?: string | null; label?: string | null }>
+  summary?: {
+    totalIncome?: number | string | null
+    totalExpense?: number | string | null
+    totalBalance?: number | string | null
+  } | null
+}
+
+interface B2BUnitTransactionPageResponse {
+  content?: Array<{
+    transactionDate?: string | null
+    transactionType?: string | null
+    debit?: number | string | null
+    credit?: number | string | null
+    balance?: number | string | null
+    description?: string | null
+  }>
+  page?: number
+  size?: number
+  totalElements?: number
+  totalPages?: number
+}
+
 function cleanString(value?: string | null): string | undefined {
   if (value == null) return undefined
   const trimmed = value.trim()
@@ -70,6 +158,110 @@ function normalizeUnit(raw: B2BUnit): B2BUnit {
     currency: raw.currency ?? 'TRY',
     riskLimit: raw.riskLimit != null ? Number(raw.riskLimit) : 0,
   }
+}
+
+function normalizeDetailMenuKey(key?: string | null): B2BUnitDetailMenuKey | undefined {
+  const value = `${key || ''}`.trim().toLowerCase()
+  if (value === 'filter') return 'filter'
+  if (value === 'invoice') return 'invoice'
+  if (value === 'account-transactions' || value === 'account_transactions' || value === 'accounttransactions') {
+    return 'accountTransactions'
+  }
+  if (value === 'collection') return 'collection'
+  if (value === 'payment') return 'payment'
+  if (value === 'reporting') return 'reporting'
+  return undefined
+}
+
+function parseDecimal(value: number | string | null | undefined): number {
+  if (value == null) return 0
+  const normalized = Number(value)
+  return Number.isFinite(normalized) ? normalized : 0
+}
+
+function defaultDetailMenuLabel(key: B2BUnitDetailMenuKey): string {
+  if (key === 'filter') return 'Filtrele'
+  if (key === 'invoice') return 'Fatura'
+  if (key === 'accountTransactions') return 'Cari İşlemler'
+  if (key === 'collection') return 'Tahsilat'
+  if (key === 'payment') return 'Ödeme'
+  return 'Raporlama'
+}
+
+function normalizeDetail(raw: B2BUnitDetailResponse): B2BUnitDetail {
+  const menus: B2BUnitDetailMenuItem[] = (raw.menus || [])
+    .map((item) => {
+      const normalizedKey = normalizeDetailMenuKey(item?.key)
+      if (!normalizedKey) return null
+      return {
+        key: normalizedKey,
+        label: defaultDetailMenuLabel(normalizedKey),
+      }
+    })
+    .filter((item): item is B2BUnitDetailMenuItem => item !== null)
+
+  return {
+    id: Number(raw.id || 0),
+    code: raw.code,
+    name: raw.name || '',
+    email: raw.email,
+    phone: raw.phone,
+    taxNumber: raw.taxNumber,
+    taxOffice: raw.taxOffice,
+    address: raw.address,
+    status: raw.status,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    menus,
+    summary: raw.summary
+      ? {
+          totalIncome: parseDecimal(raw.summary.totalIncome),
+          totalExpense: parseDecimal(raw.summary.totalExpense),
+          totalBalance: parseDecimal(raw.summary.totalBalance),
+        }
+      : undefined,
+  }
+}
+
+function normalizeTransaction(
+  raw: NonNullable<B2BUnitTransactionPageResponse['content']>[number],
+): B2BUnitTransaction {
+  return {
+    transactionDate: raw.transactionDate || '',
+    transactionType: raw.transactionType || '',
+    debit: parseDecimal(raw.debit),
+    credit: parseDecimal(raw.credit),
+    balance: parseDecimal(raw.balance),
+    description: raw.description || null,
+  }
+}
+
+function applyTransactionSort(
+  rows: B2BUnitTransaction[],
+  sort?: string,
+): B2BUnitTransaction[] {
+  if (!sort) return rows
+  const [fieldRaw, directionRaw] = sort.split(',')
+  const field = `${fieldRaw || ''}`.trim()
+  const direction = `${directionRaw || 'asc'}`.trim().toLowerCase() === 'desc' ? 'desc' : 'asc'
+
+  const multiplier = direction === 'desc' ? -1 : 1
+  const copy = rows.slice()
+
+  copy.sort((a, b) => {
+    if (field === 'transactionDate') {
+      return a.transactionDate.localeCompare(b.transactionDate) * multiplier
+    }
+    if (field === 'transactionType') {
+      return a.transactionType.localeCompare(b.transactionType, 'tr') * multiplier
+    }
+    if (field === 'debit') return (a.debit - b.debit) * multiplier
+    if (field === 'credit') return (a.credit - b.credit) * multiplier
+    if (field === 'balance') return (a.balance - b.balance) * multiplier
+    return 0
+  })
+
+  return copy
 }
 
 function toUnitPayload(payload: B2BUnitFormPayload) {
@@ -106,6 +298,50 @@ export const cariService = {
     return apiClient
       .get<ApiResponse<B2BUnit>>(`/b2bunits/${id}`)
       .then((response) => normalizeUnit(unwrapResponse(response.data)))
+  },
+
+  getUnitDetail(id: number): Promise<B2BUnitDetail> {
+    return apiClient
+      .get<ApiResponse<B2BUnitDetailResponse>>(`/b2b-units/${id}/detail`)
+      .then((response) => normalizeDetail(unwrapResponse(response.data)))
+  },
+
+  listUnitTransactions(
+    id: number,
+    params: ListB2BUnitTransactionsParams,
+  ): Promise<SpringPage<B2BUnitTransaction>> {
+    return apiClient
+      .get<ApiResponse<B2BUnitTransactionPageResponse>>(`/b2b-units/${id}/transactions`, {
+        params: {
+          startDate: params.startDate,
+          endDate: params.endDate,
+          page: params.page,
+          size: params.size,
+          search: params.search,
+        },
+      })
+      .then((response) => {
+        const data = unwrapResponse(response.data)
+        const normalizedRows = (data.content || []).map(normalizeTransaction)
+        const sortedRows = applyTransactionSort(normalizedRows, params.sort)
+        const pageNumber = Number(data.page ?? params.page)
+        const size = Number(data.size ?? params.size)
+        const totalElements = Number(data.totalElements ?? 0)
+        const totalPages = Number(data.totalPages ?? 0)
+
+        return {
+          content: sortedRows,
+          number: pageNumber,
+          size,
+          totalElements,
+          totalPages,
+          first: pageNumber <= 0,
+          last: totalPages <= 1 || pageNumber >= totalPages - 1,
+          numberOfElements: sortedRows.length,
+          empty: sortedRows.length === 0,
+          pageable: undefined,
+        }
+      })
   },
 
   getMyUnit(): Promise<B2BUnit> {

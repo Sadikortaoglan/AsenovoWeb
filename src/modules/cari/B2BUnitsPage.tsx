@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AxiosError } from 'axios'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -127,6 +128,7 @@ function parseUnitFieldErrors(error: unknown): FieldErrorMap {
 }
 
 export function B2BUnitsPage() {
+  const navigate = useNavigate()
   const { toast } = useToast()
   const { hasAnyRole } = useAuth()
   const queryClient = useQueryClient()
@@ -389,6 +391,14 @@ export function B2BUnitsPage() {
               header: 'İşlem',
               render: (r) => (
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => r.id && navigate(`/b2b-units/${r.id}`)}
+                    disabled={!r.id}
+                  >
+                    Detay
+                  </Button>
                   {canManageUnits ? (
                     <>
                       <Button
