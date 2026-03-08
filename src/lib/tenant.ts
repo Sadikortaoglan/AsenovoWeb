@@ -11,6 +11,10 @@ export interface TenantInfo {
   isMarketingHost: boolean
 }
 
+const LOCAL_ROOT_DOMAINS = ['asenovo.local']
+const PROD_ROOT_DOMAINS = ['asenovo.com']
+const RESERVED_SUBDOMAINS = new Set(['www', 'api'])
+
 function isLocalHost(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
 }
@@ -32,12 +36,7 @@ export function detectTenantFromHostname(hostname = window.location.hostname): T
     }
   }
 
-  if (
-    normalizedHost === 'asenovo.com' ||
-    normalizedHost === 'www.asenovo.com' ||
-    normalizedHost === 'asenovo.local' ||
-    normalizedHost === 'www.asenovo.local'
-  ) {
+  if (isMarketingHost(normalizedHost)) {
     return {
       tenant: DEFAULT_TENANT,
       hostname: normalizedHost,
@@ -49,11 +48,10 @@ export function detectTenantFromHostname(hostname = window.location.hostname): T
 
   const parts = normalizedHost.split('.').filter(Boolean)
   const firstLabel = parts[0]
-  const isAsenovoSubdomain = normalizedHost.endsWith('.asenovo.com')
-  const isSaraLocalSubdomain = normalizedHost.endsWith('.sara.local')
-  const hasTenantSubdomain = firstLabel && firstLabel !== 'www'
+  const isTenantSubdomain = matchesTenantSubdomain(normalizedHost)
+  const hasTenantSubdomain = firstLabel && !RESERVED_SUBDOMAINS.has(firstLabel)
   const resolvedTenant =
-    (isAsenovoSubdomain || isSaraLocalSubdomain) && hasTenantSubdomain
+    isTenantSubdomain && hasTenantSubdomain
       ? firstLabel
       : DEFAULT_TENANT
 
@@ -61,9 +59,17 @@ export function detectTenantFromHostname(hostname = window.location.hostname): T
     tenant: resolvedTenant,
     hostname: normalizedHost,
     isDefaultTenant: resolvedTenant === DEFAULT_TENANT,
-    requiresTenant: (isAsenovoSubdomain || isSaraLocalSubdomain) && !!hasTenantSubdomain,
+    requiresTenant: isTenantSubdomain && !!hasTenantSubdomain,
     isMarketingHost: false,
   }
+}
+
+function isMarketingHost(hostname: string): boolean {
+  return [...LOCAL_ROOT_DOMAINS, ...PROD_ROOT_DOMAINS].some((root) => hostname === root || hostname === `www.${root}`)
+}
+
+function matchesTenantSubdomain(hostname: string): boolean {
+  return [...LOCAL_ROOT_DOMAINS, ...PROD_ROOT_DOMAINS].some((root) => hostname.endsWith(`.${root}`))
 }
 
 export function getAccessTokenKey(tenant: string): string {

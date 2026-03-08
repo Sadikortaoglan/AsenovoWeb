@@ -7,8 +7,8 @@ Bu proje tek build ile subdomain bazlı tenant çalışacak şekilde yapılandı
 ### Tenant tespiti
 - Tenant, `window.location.hostname` üzerinden otomatik tespit edilir.
 - Örnek:
-  - `default.sara.local` -> `default`
-  - `acme.sara.local` -> `acme`
+- `default.asenovo.local` -> `default`
+- `acme.asenovo.local` -> `acme`
 - `localhost` / `127.0.0.1` için fallback tenant: `default`
 
 ### API base URL
@@ -20,8 +20,8 @@ Bu proje tek build ile subdomain bazlı tenant çalışacak şekilde yapılandı
 `/etc/hosts` içine:
 
 ```txt
-127.0.0.1 default.sara.local
-127.0.0.1 acme.sara.local
+127.0.0.1 default.asenovo.local
+127.0.0.1 acme.asenovo.local
 ```
 
 `.env.local`:
@@ -39,8 +39,8 @@ npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
 Uygulama erişimi:
-- `http://default.sara.local:5173`
-- `http://acme.sara.local:5173`
+- `http://default.asenovo.local:5173`
+- `http://acme.asenovo.local:5173`
 
 ### Tenant izole auth
 - Token anahtarları tenant bazlıdır:
