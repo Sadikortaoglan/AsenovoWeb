@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -14,9 +15,10 @@ import {
   B2BUnitDetailAccountTransactionsPanel,
   B2BUnitDetailCollectionPanel,
   B2BUnitDetailFilterPanel,
-  B2BUnitDetailInvoicePanel,
+  B2BUnitPurchaseInvoicePanel,
   B2BUnitDetailPaymentPanel,
   B2BUnitDetailReportingPanel,
+  B2BUnitSalesInvoicePanel,
 } from './B2BUnitDetailPanels'
 
 const FALLBACK_MENUS: B2BUnitDetailMenuItem[] = [
@@ -28,6 +30,13 @@ const FALLBACK_MENUS: B2BUnitDetailMenuItem[] = [
   { key: 'reporting', label: 'Raporlama' },
 ]
 
+type DetailPanelKey = B2BUnitDetailMenuKey | 'purchaseInvoice' | 'salesInvoice'
+
+const INVOICE_SUBMENU_LABELS: Record<'purchaseInvoice' | 'salesInvoice', string> = {
+  purchaseInvoice: 'Alış Yap',
+  salesInvoice: 'Satış Yap',
+}
+
 function formatAmount(value: number): string {
   return value.toLocaleString('tr-TR', {
     minimumFractionDigits: 2,
@@ -35,9 +44,11 @@ function formatAmount(value: number): string {
   })
 }
 
-function renderPanel(menu: B2BUnitDetailMenuKey, b2bUnitId: number) {
+function renderPanel(menu: DetailPanelKey, b2bUnitId: number) {
   if (menu === 'filter') return <B2BUnitDetailFilterPanel b2bUnitId={b2bUnitId} />
-  if (menu === 'invoice') return <B2BUnitDetailInvoicePanel />
+  if (menu === 'invoice') return <B2BUnitPurchaseInvoicePanel b2bUnitId={b2bUnitId} />
+  if (menu === 'purchaseInvoice') return <B2BUnitPurchaseInvoicePanel b2bUnitId={b2bUnitId} />
+  if (menu === 'salesInvoice') return <B2BUnitSalesInvoicePanel b2bUnitId={b2bUnitId} />
   if (menu === 'accountTransactions') return <B2BUnitDetailAccountTransactionsPanel />
   if (menu === 'collection') return <B2BUnitDetailCollectionPanel />
   if (menu === 'payment') return <B2BUnitDetailPaymentPanel />
@@ -45,10 +56,12 @@ function renderPanel(menu: B2BUnitDetailMenuKey, b2bUnitId: number) {
 }
 
 export function B2BUnitDetailPage() {
+  const { hasAnyRole } = useAuth()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const parsedId = Number(id)
   const isValidId = Number.isFinite(parsedId) && parsedId > 0
+  const canUseInvoicePanels = hasAnyRole(['STAFF_USER'])
 
   const detailQuery = useQuery({
     queryKey: ['b2bunits', 'detail', parsedId],
@@ -63,13 +76,39 @@ export function B2BUnitDetailPage() {
     return FALLBACK_MENUS
   }, [detailQuery.data?.menus])
 
-  const [activeMenu, setActiveMenu] = useState<B2BUnitDetailMenuKey>('filter')
+  const visibleMenus = useMemo(() => {
+    return menus.filter((menu) => (menu.key === 'invoice' ? canUseInvoicePanels : true))
+  }, [canUseInvoicePanels, menus])
+
+  const [activeMenu, setActiveMenu] = useState<DetailPanelKey>('filter')
+  const [invoiceExpanded, setInvoiceExpanded] = useState(false)
 
   useEffect(() => {
-    if (!menus.some((menu) => menu.key === activeMenu)) {
-      setActiveMenu(menus[0]?.key || 'filter')
+    const validKeys: DetailPanelKey[] = [
+      ...(visibleMenus.map((menu) => menu.key) as B2BUnitDetailMenuKey[]),
+      ...(canUseInvoicePanels ? (['purchaseInvoice', 'salesInvoice'] as const) : []),
+    ]
+
+    if (!validKeys.includes(activeMenu)) {
+      const firstVisibleMenu = visibleMenus[0]?.key
+      if (firstVisibleMenu === 'invoice' && canUseInvoicePanels) {
+        setInvoiceExpanded(true)
+        setActiveMenu('purchaseInvoice')
+      } else {
+        setActiveMenu((firstVisibleMenu || 'filter') as DetailPanelKey)
+      }
     }
-  }, [activeMenu, menus])
+  }, [activeMenu, canUseInvoicePanels, visibleMenus])
+
+  const isInvoiceChildActive = activeMenu === 'purchaseInvoice' || activeMenu === 'salesInvoice'
+  const showInvoiceChildren = canUseInvoicePanels && (invoiceExpanded || isInvoiceChildActive)
+
+  const activeMenuLabel = useMemo(() => {
+    if (activeMenu === 'purchaseInvoice' || activeMenu === 'salesInvoice') {
+      return INVOICE_SUBMENU_LABELS[activeMenu]
+    }
+    return visibleMenus.find((item) => item.key === activeMenu)?.label || 'Detay'
+  }, [activeMenu, visibleMenus])
 
   if (!isValidId) {
     return (
@@ -156,29 +195,82 @@ export function B2BUnitDetailPage() {
             <CardTitle className="text-base">Menü</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            {menus.map((menu) => (
-              <button
-                key={menu.key}
-                type="button"
-                onClick={() => setActiveMenu(menu.key)}
-                className={cn(
-                  'w-full rounded-md px-3 py-2 text-left text-sm transition',
-                  activeMenu === menu.key
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted text-foreground'
-                )}
-              >
-                {menu.label}
-              </button>
-            ))}
+            {visibleMenus.map((menu) => {
+              if (menu.key === 'invoice') {
+                return (
+                  <div key={menu.key} className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInvoiceExpanded(true)
+                        if (!isInvoiceChildActive) {
+                          setActiveMenu('purchaseInvoice')
+                        }
+                      }}
+                      className={cn(
+                        'w-full rounded-md px-3 py-2 text-left text-sm transition',
+                        isInvoiceChildActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'hover:bg-muted text-foreground',
+                      )}
+                    >
+                      {menu.label}
+                    </button>
+
+                    {showInvoiceChildren ? (
+                      <div className="space-y-1 pl-3">
+                        <button
+                          type="button"
+                          onClick={() => setActiveMenu('purchaseInvoice')}
+                          className={cn(
+                            'w-full rounded-md px-3 py-2 text-left text-sm transition',
+                            activeMenu === 'purchaseInvoice'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'hover:bg-muted text-foreground',
+                          )}
+                        >
+                          Alış Yap
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveMenu('salesInvoice')}
+                          className={cn(
+                            'w-full rounded-md px-3 py-2 text-left text-sm transition',
+                            activeMenu === 'salesInvoice'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'hover:bg-muted text-foreground',
+                          )}
+                        >
+                          Satış Yap
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              }
+
+              return (
+                <button
+                  key={menu.key}
+                  type="button"
+                  onClick={() => setActiveMenu(menu.key)}
+                  className={cn(
+                    'w-full rounded-md px-3 py-2 text-left text-sm transition',
+                    activeMenu === menu.key
+                      ? 'bg-primary text-primary-foreground'
+                      : 'hover:bg-muted text-foreground',
+                  )}
+                >
+                  {menu.label}
+                </button>
+              )
+            })}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
-              {menus.find((item) => item.key === activeMenu)?.label || 'Detay'}
-            </CardTitle>
+            <CardTitle className="text-base">{activeMenuLabel}</CardTitle>
           </CardHeader>
           <CardContent>{renderPanel(activeMenu, detail.id || parsedId)}</CardContent>
         </Card>

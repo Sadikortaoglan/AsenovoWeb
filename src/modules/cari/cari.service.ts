@@ -82,6 +82,57 @@ export interface B2BUnitTransaction {
   description?: string | null
 }
 
+export interface LookupOption {
+  id: number
+  name: string
+}
+
+export interface B2BUnitInvoiceLinePayload {
+  productName: string
+  quantity: number
+  unitPrice: number
+  vatRate: number
+}
+
+export interface PurchaseInvoicePayload {
+  warehouseId: number
+  invoiceDate: string
+  description?: string
+  lines: B2BUnitInvoiceLinePayload[]
+}
+
+export interface SalesInvoicePayload extends PurchaseInvoicePayload {
+  facilityId: number
+  elevatorId: number
+}
+
+export interface B2BUnitInvoiceLine {
+  id?: number
+  productName: string
+  quantity: number
+  unitPrice: number
+  vatRate: number
+  lineSubTotal: number
+  lineVatTotal: number
+  lineGrandTotal: number
+}
+
+export interface B2BUnitInvoice {
+  id: number
+  invoiceType?: string | null
+  b2bUnitId?: number | null
+  facilityId?: number | null
+  elevatorId?: number | null
+  warehouseId?: number | null
+  invoiceDate?: string | null
+  description?: string | null
+  subTotal: number
+  vatTotal: number
+  grandTotal: number
+  status?: string | null
+  lines: B2BUnitInvoiceLine[]
+}
+
 export interface B2BUnitGroup {
   id?: number
   name: string
@@ -146,10 +197,42 @@ interface B2BUnitTransactionPageResponse {
   totalPages?: number
 }
 
+interface B2BUnitInvoiceResponse {
+  id?: number | null
+  invoiceType?: string | null
+  b2bUnitId?: number | null
+  facilityId?: number | null
+  elevatorId?: number | null
+  warehouseId?: number | null
+  invoiceDate?: string | null
+  description?: string | null
+  subTotal?: number | string | null
+  vatTotal?: number | string | null
+  grandTotal?: number | string | null
+  status?: string | null
+  lines?: Array<{
+    id?: number | null
+    productName?: string | null
+    quantity?: number | string | null
+    unitPrice?: number | string | null
+    vatRate?: number | string | null
+    lineSubTotal?: number | string | null
+    lineVatTotal?: number | string | null
+    lineGrandTotal?: number | string | null
+  }>
+}
+
 function cleanString(value?: string | null): string | undefined {
   if (value == null) return undefined
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
+}
+
+function cleanNumber(value?: number | null): number | undefined {
+  if (value == null) return undefined
+  const normalized = Number(value)
+  if (!Number.isFinite(normalized)) return undefined
+  return normalized
 }
 
 function normalizeUnit(raw: B2BUnit): B2BUnit {
@@ -264,6 +347,64 @@ function applyTransactionSort(
   return copy
 }
 
+function normalizeInvoice(raw: B2BUnitInvoiceResponse): B2BUnitInvoice {
+  const lines: B2BUnitInvoiceLine[] = (raw.lines || []).map((line) => ({
+    id: line.id != null ? Number(line.id) : undefined,
+    productName: line.productName || '',
+    quantity: parseDecimal(line.quantity),
+    unitPrice: parseDecimal(line.unitPrice),
+    vatRate: parseDecimal(line.vatRate),
+    lineSubTotal: parseDecimal(line.lineSubTotal),
+    lineVatTotal: parseDecimal(line.lineVatTotal),
+    lineGrandTotal: parseDecimal(line.lineGrandTotal),
+  }))
+
+  return {
+    id: Number(raw.id || 0),
+    invoiceType: raw.invoiceType,
+    b2bUnitId: raw.b2bUnitId != null ? Number(raw.b2bUnitId) : null,
+    facilityId: raw.facilityId != null ? Number(raw.facilityId) : null,
+    elevatorId: raw.elevatorId != null ? Number(raw.elevatorId) : null,
+    warehouseId: raw.warehouseId != null ? Number(raw.warehouseId) : null,
+    invoiceDate: raw.invoiceDate,
+    description: raw.description,
+    subTotal: parseDecimal(raw.subTotal),
+    vatTotal: parseDecimal(raw.vatTotal),
+    grandTotal: parseDecimal(raw.grandTotal),
+    status: raw.status,
+    lines,
+  }
+}
+
+function normalizeInvoiceLines(lines: B2BUnitInvoiceLinePayload[]) {
+  return lines.map((line) => ({
+    productName: (line.productName || '').trim(),
+    quantity: cleanNumber(line.quantity) ?? 0,
+    unitPrice: cleanNumber(line.unitPrice) ?? 0,
+    vatRate: cleanNumber(line.vatRate) ?? 0,
+  }))
+}
+
+function toPurchaseInvoicePayload(payload: PurchaseInvoicePayload) {
+  return {
+    warehouseId: cleanNumber(payload.warehouseId),
+    invoiceDate: cleanString(payload.invoiceDate),
+    description: cleanString(payload.description),
+    lines: normalizeInvoiceLines(payload.lines),
+  }
+}
+
+function toSalesInvoicePayload(payload: SalesInvoicePayload) {
+  return {
+    facilityId: cleanNumber(payload.facilityId),
+    elevatorId: cleanNumber(payload.elevatorId),
+    warehouseId: cleanNumber(payload.warehouseId),
+    invoiceDate: cleanString(payload.invoiceDate),
+    description: cleanString(payload.description),
+    lines: normalizeInvoiceLines(payload.lines),
+  }
+}
+
 function toUnitPayload(payload: B2BUnitFormPayload) {
   return {
     name: payload.name.trim(),
@@ -342,6 +483,46 @@ export const cariService = {
           pageable: undefined,
         }
       })
+  },
+
+  lookupWarehouses(query?: string): Promise<LookupOption[]> {
+    return apiClient
+      .get<ApiResponse<LookupOption[]>>('/warehouses/lookup', { params: { query } })
+      .then((response) => unwrapArrayResponse(response.data, true))
+  },
+
+  lookupFacilities(b2bUnitId: number, query?: string): Promise<LookupOption[]> {
+    return apiClient
+      .get<ApiResponse<LookupOption[]>>('/facilities/lookup', {
+        params: { b2bUnitId, query },
+      })
+      .then((response) => unwrapArrayResponse(response.data, true))
+  },
+
+  lookupElevators(facilityId: number, query?: string): Promise<LookupOption[]> {
+    return apiClient
+      .get<ApiResponse<LookupOption[]>>('/elevators/lookup', {
+        params: { facilityId, query },
+      })
+      .then((response) => unwrapArrayResponse(response.data, true))
+  },
+
+  createPurchaseInvoice(b2bUnitId: number, payload: PurchaseInvoicePayload): Promise<B2BUnitInvoice> {
+    return apiClient
+      .post<ApiResponse<B2BUnitInvoiceResponse>>(
+        `/b2b-units/${b2bUnitId}/invoices/purchase`,
+        toPurchaseInvoicePayload(payload),
+      )
+      .then((response) => normalizeInvoice(unwrapResponse(response.data)))
+  },
+
+  createSalesInvoice(b2bUnitId: number, payload: SalesInvoicePayload): Promise<B2BUnitInvoice> {
+    return apiClient
+      .post<ApiResponse<B2BUnitInvoiceResponse>>(
+        `/b2b-units/${b2bUnitId}/invoices/sales`,
+        toSalesInvoicePayload(payload),
+      )
+      .then((response) => normalizeInvoice(unwrapResponse(response.data)))
   },
 
   getMyUnit(): Promise<B2BUnit> {
