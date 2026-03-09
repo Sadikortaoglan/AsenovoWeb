@@ -44,7 +44,10 @@ import {
 } from '@/modules/facilities/facilities.service'
 import { PaginatedTable } from '@/modules/shared/components/PaginatedTable'
 import {
+  type B2BUnitElevator,
+  type B2BUnitElevatorFormPayload,
   type B2BUnitFacility,
+  type B2BUnitMaintenanceFailure,
   type BankPaymentPayload,
   cariService,
   type B2BUnitInvoiceLinePayload,
@@ -91,6 +94,26 @@ const FACILITY_STATUS_OPTIONS: Array<{ value: FacilityStatus; label: string }> =
   { value: 'PASSIVE', label: 'Pasif' },
 ]
 
+const ELEVATOR_LABEL_TYPE = 'BLUE'
+const ELEVATOR_DEFAULT_MANAGER_NAME = 'Yetkili'
+const ELEVATOR_DEFAULT_MANAGER_TC = '11111111111'
+const ELEVATOR_DEFAULT_MANAGER_PHONE = '05555555555'
+
+const ELEVATOR_MAINTENANCE_TYPE_OPTIONS = [
+  'Aylık Bakım',
+  'Üç Aylık Bakım',
+  'Altı Aylık Bakım',
+  'Yıllık Bakım',
+]
+
+const ELEVATOR_TYPE_OPTIONS = ['İnsan', 'Yük', 'Sedye', 'Servis', 'Panoramik', 'Monşarj']
+
+const ELEVATOR_DOOR_TYPE_OPTIONS = ['Otomatik', 'Yarı Otomatik', 'Manuel']
+
+const ELEVATOR_HAZARD_TYPE_OPTIONS = ['Hidrolik', 'Halatlı', 'MRL', 'Makine Daireli']
+
+const ELEVATOR_WARRANTY_STATUS_OPTIONS = ['GARANTILI', 'GARANTISIZ']
+
 const initialB2BUnitFacilityForm: FacilityFormPayload = {
   name: '',
   b2bUnitId: undefined,
@@ -119,6 +142,31 @@ const initialB2BUnitFacilityForm: FacilityFormPayload = {
   mapLng: undefined,
   mapAddressQuery: '',
   attachmentUrl: '',
+}
+
+const initialB2BUnitElevatorForm: B2BUnitElevatorFormState = {
+  facilityId: undefined,
+  regionId: undefined,
+  identityNumber: '',
+  name: '',
+  maintenanceType: '',
+  elevatorType: '',
+  doorType: '',
+  hazardType: '',
+  brand: '',
+  constructionYear: undefined,
+  stopCount: undefined,
+  capacity: undefined,
+  speed: undefined,
+  warrantyStatus: '',
+  warrantyEndDate: '',
+  maintenanceStaffId: undefined,
+  failureStaffId: undefined,
+  addressText: '',
+  description: '',
+  mapLat: undefined,
+  mapLng: undefined,
+  mapAddressQuery: '',
 }
 
 interface InvoiceLineState {
@@ -185,8 +233,19 @@ interface ReportingFormErrors {
   range?: string
 }
 
+interface B2BUnitElevatorFormState
+  extends Omit<
+    B2BUnitElevatorFormPayload,
+    'facilityId' | 'labelDate' | 'labelType' | 'expiryDate' | 'managerName' | 'managerTcIdentityNo' | 'managerPhone'
+  > {
+  facilityId?: number
+  regionId?: number
+}
+
 type FacilityFieldKey = keyof FacilityFormPayload
 type FacilityFieldErrors = Partial<Record<FacilityFieldKey, string>>
+type ElevatorFieldKey = keyof B2BUnitElevatorFormState
+type ElevatorFieldErrors = Partial<Record<ElevatorFieldKey, string>>
 
 interface B2BUnitFacilityListPanelProps extends B2BUnitDetailPanelProps {
   onOpenCreate: () => void
@@ -197,6 +256,18 @@ interface B2BUnitFacilityCreatePanelProps extends B2BUnitDetailPanelProps {
   facilityId?: number | null
   onSaved?: () => void
 }
+
+interface B2BUnitElevatorListPanelProps extends B2BUnitDetailPanelProps {
+  onOpenCreate: () => void
+  onOpenEdit: (elevatorId: number) => void
+}
+
+interface B2BUnitElevatorCreatePanelProps extends B2BUnitDetailPanelProps {
+  elevatorId?: number | null
+  onSaved?: () => void
+}
+
+interface B2BUnitMaintenanceFailureListPanelProps extends B2BUnitDetailPanelProps {}
 
 interface B2BUnitDetailPanelProps {
   b2bUnitId: number
@@ -226,6 +297,15 @@ function formatLocalDate(value?: string | null): string {
   return `${parts[2]}.${parts[1]}.${parts[0]}`
 }
 
+function formatLocalDateTime(value?: string | null): string {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleString('tr-TR')
+  }
+  return value
+}
+
 function formatAmount(value?: number | null): string {
   return Number(value ?? 0).toLocaleString('tr-TR', {
     minimumFractionDigits: 2,
@@ -237,6 +317,14 @@ function getTransactionTypeLabel(type?: string | null): string {
   const key = `${type || ''}`.trim().toUpperCase()
   if (!key) return '-'
   return TRANSACTION_TYPE_LABELS[key] || key.replaceAll('_', ' ')
+}
+
+function getMaintenanceFailureOperationLabel(item: B2BUnitMaintenanceFailure): string {
+  const rawValue = `${item.operationType || item.sourceType || ''}`.trim().toUpperCase()
+  if (!rawValue) return '-'
+  if (rawValue.includes('MAINTENANCE') || rawValue.includes('BAKIM')) return 'Bakım'
+  if (rawValue.includes('FAULT') || rawValue.includes('FAILURE') || rawValue.includes('ARIZA')) return 'Arıza'
+  return rawValue.replaceAll('_', ' ')
 }
 
 function roundToTwo(value: number): number {
@@ -600,6 +688,138 @@ function parseB2BUnitFacilityFieldErrors(error: unknown): FacilityFieldErrors {
     if (message.includes('region does not belong to selected neighborhood')) {
       errors.neighborhoodId = 'Seçilen bölge bu mahalleye ait değil.'
       errors.regionId = 'Seçilen bölge bu mahalleye ait değil.'
+    }
+  })
+
+  return errors
+}
+
+function normalizePhoneDigits(value: string): string {
+  return `${value || ''}`.replace(/\D/g, '')
+}
+
+function getDefaultElevatorExpiryDate(labelDate: string): string {
+  const label = new Date(labelDate)
+  const fallback = Number.isNaN(label.getTime()) ? new Date() : label
+  fallback.setFullYear(fallback.getFullYear() + 1)
+  return toInputDate(fallback)
+}
+
+function toB2BUnitElevatorPayload(form: B2BUnitElevatorFormState): B2BUnitElevatorFormPayload {
+  const labelDate = toInputDate(new Date())
+  const fallbackExpiry = getDefaultElevatorExpiryDate(labelDate)
+  const candidateExpiryDate = form.warrantyEndDate || fallbackExpiry
+  const expiryDate = candidateExpiryDate > labelDate ? candidateExpiryDate : fallbackExpiry
+
+  return {
+    facilityId: Number(form.facilityId || 0),
+    identityNumber: (form.identityNumber || '').trim(),
+    name: (form.name || '').trim(),
+    maintenanceType: (form.maintenanceType || '').trim() || undefined,
+    elevatorType: (form.elevatorType || '').trim() || undefined,
+    doorType: (form.doorType || '').trim() || undefined,
+    hazardType: (form.hazardType || '').trim() || undefined,
+    brand: (form.brand || '').trim() || undefined,
+    constructionYear: form.constructionYear,
+    stopCount: form.stopCount,
+    capacity: form.capacity,
+    speed: form.speed,
+    warrantyStatus: (form.warrantyStatus || '').trim() || undefined,
+    warrantyEndDate: form.warrantyEndDate || undefined,
+    maintenanceStaffId: form.maintenanceStaffId,
+    failureStaffId: form.failureStaffId,
+    addressText: (form.addressText || '').trim() || undefined,
+    description: (form.description || '').trim() || undefined,
+    mapLat: form.mapLat,
+    mapLng: form.mapLng,
+    mapAddressQuery: (form.mapAddressQuery || '').trim() || undefined,
+    labelDate,
+    labelType: ELEVATOR_LABEL_TYPE,
+    expiryDate,
+    managerName: ELEVATOR_DEFAULT_MANAGER_NAME,
+    managerTcIdentityNo: ELEVATOR_DEFAULT_MANAGER_TC,
+    managerPhone: normalizePhoneDigits(ELEVATOR_DEFAULT_MANAGER_PHONE),
+  }
+}
+
+function validateB2BUnitElevatorForm(form: B2BUnitElevatorFormState): ElevatorFieldErrors {
+  const errors: ElevatorFieldErrors = {}
+  const currentYear = new Date().getFullYear()
+
+  if (!form.facilityId) {
+    errors.facilityId = 'Tesis (Bina) seçimi zorunlu.'
+  }
+
+  if (!form.name?.trim()) {
+    errors.name = 'Asansör adı zorunlu.'
+  }
+
+  if (!form.identityNumber?.trim()) {
+    errors.identityNumber = 'Asansör kimlik numarası zorunlu.'
+  }
+
+  if (form.constructionYear != null) {
+    if (!Number.isInteger(form.constructionYear) || form.constructionYear < 0) {
+      errors.constructionYear = 'Yapım yılı geçerli olmalı.'
+    } else if (form.constructionYear > currentYear + 1) {
+      errors.constructionYear = `Yapım yılı ${currentYear + 1} değerinden büyük olamaz.`
+    }
+  }
+
+  if (form.stopCount != null && form.stopCount < 0) {
+    errors.stopCount = 'Durak sayısı negatif olamaz.'
+  }
+
+  if (form.capacity != null && form.capacity < 0) {
+    errors.capacity = 'Kapasite negatif olamaz.'
+  }
+
+  if (form.speed != null && form.speed < 0) {
+    errors.speed = 'Hız negatif olamaz.'
+  }
+
+  if (form.maintenanceStaffId != null && form.maintenanceStaffId <= 0) {
+    errors.maintenanceStaffId = 'Bakım personeli değeri geçersiz.'
+  }
+
+  if (form.failureStaffId != null && form.failureStaffId <= 0) {
+    errors.failureStaffId = 'Arıza personeli değeri geçersiz.'
+  }
+
+  if (form.mapLat != null && (form.mapLat < -90 || form.mapLat > 90)) {
+    errors.mapLat = 'Enlem -90 ile 90 arasında olmalıdır.'
+  }
+
+  if (form.mapLng != null && (form.mapLng < -180 || form.mapLng > 180)) {
+    errors.mapLng = 'Boylam -180 ile 180 arasında olmalıdır.'
+  }
+
+  return errors
+}
+
+function parseB2BUnitElevatorFieldErrors(error: unknown): ElevatorFieldErrors {
+  const errors: ElevatorFieldErrors = {}
+  if (!(error instanceof AxiosError)) return errors
+
+  const responseData = error.response?.data as ApiResponse<unknown> | undefined
+  const messages = [
+    ...(Array.isArray(responseData?.errors) ? responseData.errors : []),
+    responseData?.message || '',
+  ].filter(Boolean)
+
+  messages.forEach((raw) => {
+    const message = `${raw || ''}`.toLowerCase()
+    if (message.includes('facilityid')) errors.facilityId = 'Tesis (Bina) seçimi zorunlu.'
+    if (message.includes('identity number')) errors.identityNumber = 'Asansör kimlik numarası zorunlu.'
+    if (message.includes('name is required')) errors.name = 'Asansör adı zorunlu.'
+    if (message.includes('constructionyear')) errors.constructionYear = 'Yapım yılı geçerli olmalı.'
+    if (message.includes('stopcount')) errors.stopCount = 'Durak sayısı negatif olamaz.'
+    if (message.includes('capacity')) errors.capacity = 'Kapasite negatif olamaz.'
+    if (message.includes('speed')) errors.speed = 'Hız negatif olamaz.'
+    if (message.includes('latitude')) errors.mapLat = 'Enlem değeri geçersiz.'
+    if (message.includes('longitude')) errors.mapLng = 'Boylam değeri geçersiz.'
+    if (message.includes('facility does not belong')) {
+      errors.facilityId = 'Seçilen tesis bu cariye ait değil.'
     }
   })
 
@@ -3227,6 +3447,852 @@ export function B2BUnitFacilityCreatePanel({
           <Label htmlFor="b2bunit-facility-map-lng">Boylam (Lng)</Label>
           <Input
             id="b2bunit-facility-map-lng"
+            type="number"
+            step="0.000001"
+            value={form.mapLng ?? ''}
+            onChange={(event) => {
+              const value = event.target.value
+              setField('mapLng', value === '' ? undefined : Number(value))
+            }}
+            className={fieldErrors.mapLng ? 'border-destructive' : ''}
+          />
+          {fieldErrors.mapLng ? <p className="text-sm text-destructive">{fieldErrors.mapLng}</p> : null}
+        </div>
+      </div>
+
+      <GoogleMapPicker
+        lat={form.mapLat}
+        lng={form.mapLng}
+        addressQuery={form.mapAddressQuery}
+        onAddressQueryChange={(value) => setField('mapAddressQuery', value)}
+        onLocationChange={(lat, lng) => {
+          setField('mapLat', Number(lat.toFixed(7)))
+          setField('mapLng', Number(lng.toFixed(7)))
+        }}
+      />
+
+      <div className="flex justify-end">
+        <Button onClick={handleSubmit} disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? 'Kaydediliyor...' : 'Kaydet'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export function B2BUnitElevatorListPanel({
+  b2bUnitId,
+  onOpenCreate,
+  onOpenEdit,
+}: B2BUnitElevatorListPanelProps) {
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+  const { hasAnyRole } = useAuth()
+  const canManageElevators = hasAnyRole(['STAFF_USER'])
+
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState<number>(25)
+  const [sortField, setSortField] = useState('name')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [searchInput, setSearchInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [deleteCandidate, setDeleteCandidate] = useState<B2BUnitElevator | null>(null)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+
+  const elevatorsQuery = useQuery({
+    queryKey: [
+      'b2bunits',
+      'elevators',
+      b2bUnitId,
+      page,
+      pageSize,
+      appliedSearch,
+      sortField,
+      sortDirection,
+    ],
+    queryFn: () =>
+      cariService.listUnitElevators(b2bUnitId, {
+        query: appliedSearch || undefined,
+        search: appliedSearch || undefined,
+        page,
+        size: pageSize,
+        sort: `${sortField},${sortDirection}`,
+      }),
+    enabled: Number.isFinite(b2bUnitId) && b2bUnitId > 0,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (elevatorId: number) => cariService.deleteElevator(elevatorId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['b2bunits', 'elevators', b2bUnitId] })
+      toast({
+        title: 'Başarılı',
+        description: 'Asansör kaydı silindi.',
+        variant: 'success',
+      })
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Hata',
+        description: getUserFriendlyErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const handleApplySearch = () => {
+    setPage(0)
+    setAppliedSearch(searchInput.trim())
+  }
+
+  const handleSortChange = (next: { field: string; direction: SortDirection }) => {
+    setSortField(next.field)
+    setSortDirection(next.direction)
+    setPage(0)
+  }
+
+  const handleDeleteRequest = (elevator: B2BUnitElevator) => {
+    setDeleteCandidate(elevator)
+    setConfirmDeleteOpen(true)
+  }
+
+  const handleDeleteConfirm = () => {
+    if (!deleteCandidate?.id) return
+    deleteMutation.mutate(deleteCandidate.id)
+    setDeleteCandidate(null)
+  }
+
+  const columns = useMemo(
+    () => [
+      {
+        key: 'name',
+        header: 'ASANSÖR ADI',
+        sortable: true,
+        sortKey: 'name',
+        render: (row: B2BUnitElevator) => row.name || '-',
+      },
+      {
+        key: 'facilityName',
+        header: 'TESİS (BİNA) ADI',
+        sortable: true,
+        sortKey: 'facilityName',
+        render: (row: B2BUnitElevator) => row.facilityName || '-',
+      },
+      {
+        key: 'actions',
+        header: 'İŞLEM',
+        exportable: false,
+        render: (row: B2BUnitElevator) => {
+          if (!canManageElevators || !row.id) return '-'
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  İşlemler
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    onOpenEdit(Number(row.id))
+                    toast({
+                      title: 'Bilgi',
+                      description: 'Asansör düzenleme ekranı yakında eklenecek.',
+                    })
+                  }}
+                >
+                  Düzenle
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => handleDeleteRequest(row)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Sil
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+      },
+    ],
+    [canManageElevators, onOpenEdit],
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">ASANSÖRLER</h2>
+        {canManageElevators ? (
+          <Button onClick={onOpenCreate} variant="outline">
+            Asansör Ekle
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[140px_minmax(0,1fr)_auto]">
+        <div className="space-y-2">
+          <Label>Sayfa Boyutu</Label>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => {
+              setPageSize(Number(value))
+              setPage(0)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((sizeOption) => (
+                <SelectItem key={sizeOption} value={String(sizeOption)}>
+                  {sizeOption}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-search">Ara</Label>
+          <Input
+            id="b2bunit-elevator-search"
+            placeholder="Arayın..."
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                handleApplySearch()
+              }
+            }}
+          />
+        </div>
+
+        <div className="flex items-end">
+          <Button variant="outline" onClick={handleApplySearch} disabled={elevatorsQuery.isFetching}>
+            Ara
+          </Button>
+        </div>
+      </div>
+
+      <PaginatedTable
+        pageData={elevatorsQuery.data}
+        loading={elevatorsQuery.isLoading || elevatorsQuery.isFetching}
+        onPageChange={setPage}
+        sort={{ field: sortField, direction: sortDirection }}
+        onSortChange={handleSortChange}
+        tableTitle="asansorler"
+        emptyMessage="Kayıt bulunamadı."
+        columns={columns}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={(open) => {
+          setConfirmDeleteOpen(open)
+          if (!open) setDeleteCandidate(null)
+        }}
+        title="Asansör Sil"
+        message={`"${deleteCandidate?.name || 'Bu kayıt'}" asansörünü silmek istediğinize emin misiniz?`}
+        confirmText="Evet, Sil"
+        cancelText="İptal"
+        variant="destructive"
+        onConfirm={handleDeleteConfirm}
+      />
+    </div>
+  )
+}
+
+export function B2BUnitMaintenanceFailureListPanel({
+  b2bUnitId,
+}: B2BUnitMaintenanceFailureListPanelProps) {
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState<number>(25)
+  const [sortField, setSortField] = useState('operationDate')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [searchInput, setSearchInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+
+  const maintenanceFailureQuery = useQuery({
+    queryKey: [
+      'b2bunits',
+      'maintenance-failures',
+      b2bUnitId,
+      page,
+      pageSize,
+      appliedSearch,
+      sortField,
+      sortDirection,
+    ],
+    queryFn: () =>
+      cariService.listUnitMaintenanceFailures(b2bUnitId, {
+        query: appliedSearch || undefined,
+        search: appliedSearch || undefined,
+        page,
+        size: pageSize,
+        sort: `${sortField},${sortDirection}`,
+      }),
+    enabled: Number.isFinite(b2bUnitId) && b2bUnitId > 0,
+  })
+
+  const handleApplySearch = () => {
+    setPage(0)
+    setAppliedSearch(searchInput.trim())
+  }
+
+  const handleSortChange = (next: { field: string; direction: SortDirection }) => {
+    setSortField(next.field)
+    setSortDirection(next.direction)
+    setPage(0)
+  }
+
+  const columns = useMemo(
+    () => [
+      {
+        key: 'operationDate',
+        header: 'TARİH',
+        sortable: true,
+        sortKey: 'operationDate',
+        render: (row: B2BUnitMaintenanceFailure) => formatLocalDateTime(row.operationDate),
+      },
+      {
+        key: 'operationType',
+        header: 'İŞLEM TÜRÜ',
+        sortable: true,
+        sortKey: 'operationType',
+        render: (row: B2BUnitMaintenanceFailure) => getMaintenanceFailureOperationLabel(row),
+      },
+      {
+        key: 'elevatorName',
+        header: 'ASANSÖR ADI',
+        sortable: true,
+        sortKey: 'elevatorName',
+        render: (row: B2BUnitMaintenanceFailure) => row.elevatorName || '-',
+      },
+      {
+        key: 'facilityName',
+        header: 'TESİS (BİNA) ADI',
+        sortable: true,
+        sortKey: 'facilityName',
+        render: (row: B2BUnitMaintenanceFailure) => row.facilityName || '-',
+      },
+      {
+        key: 'actions',
+        header: 'İŞLEM',
+        exportable: false,
+        render: () => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">
+                İşlemler
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem disabled>Yakında</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ],
+    [],
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">TAMAMLANAN BAKIM VE ARIZALAR</h2>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[140px_minmax(0,1fr)_auto]">
+        <div className="space-y-2">
+          <Label>Sayfa Boyutu</Label>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => {
+              setPageSize(Number(value))
+              setPage(0)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((sizeOption) => (
+                <SelectItem key={sizeOption} value={String(sizeOption)}>
+                  {sizeOption}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-maintenance-failure-search">Ara</Label>
+          <Input
+            id="b2bunit-maintenance-failure-search"
+            placeholder="Arayın..."
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                handleApplySearch()
+              }
+            }}
+          />
+        </div>
+
+        <div className="flex items-end">
+          <Button variant="outline" onClick={handleApplySearch} disabled={maintenanceFailureQuery.isFetching}>
+            Ara
+          </Button>
+        </div>
+      </div>
+
+      <PaginatedTable
+        pageData={maintenanceFailureQuery.data}
+        loading={maintenanceFailureQuery.isLoading || maintenanceFailureQuery.isFetching}
+        onPageChange={setPage}
+        sort={{ field: sortField, direction: sortDirection }}
+        onSortChange={handleSortChange}
+        tableTitle="tamamlanan-bakim-ve-arizalar"
+        emptyMessage="Tabloda veri bulunmuyor"
+        columns={columns}
+      />
+    </div>
+  )
+}
+
+export function B2BUnitElevatorCreatePanel({
+  b2bUnitId,
+  elevatorId,
+  onSaved,
+}: B2BUnitElevatorCreatePanelProps) {
+  const { toast } = useToast()
+  const { hasAnyRole } = useAuth()
+  const queryClient = useQueryClient()
+  const canManageElevators = hasAnyRole(['STAFF_USER'])
+
+  const [form, setForm] = useState<B2BUnitElevatorFormState>(initialB2BUnitElevatorForm)
+  const [fieldErrors, setFieldErrors] = useState<ElevatorFieldErrors>({})
+
+  const unitFacilitiesQuery = useQuery({
+    queryKey: ['b2bunits', 'facilities', 'lookup', b2bUnitId, 'elevator-create'],
+    queryFn: () => cariService.lookupUnitFacilities(b2bUnitId),
+    enabled: canManageElevators && Number.isFinite(b2bUnitId) && b2bUnitId > 0,
+  })
+
+  const selectedFacilityQuery = useQuery({
+    queryKey: ['facility', 'b2bunit-elevator-create', form.facilityId],
+    queryFn: () => facilitiesService.getFacilityById(Number(form.facilityId)),
+    enabled: canManageElevators && !!form.facilityId,
+  })
+
+  const regionsQuery = useQuery({
+    queryKey: ['locations', 'regions', 'b2bunit-elevator-create', selectedFacilityQuery.data?.neighborhoodId],
+    queryFn: () => facilitiesService.listRegions(Number(selectedFacilityQuery.data?.neighborhoodId)),
+    enabled: canManageElevators && !!selectedFacilityQuery.data?.neighborhoodId,
+  })
+
+  useEffect(() => {
+    if (!selectedFacilityQuery.data) return
+    setForm((prev) => ({
+      ...prev,
+      addressText: prev.addressText || selectedFacilityQuery.data.addressText || '',
+      mapLat: prev.mapLat ?? selectedFacilityQuery.data.mapLat ?? undefined,
+      mapLng: prev.mapLng ?? selectedFacilityQuery.data.mapLng ?? undefined,
+      regionId: prev.regionId ?? selectedFacilityQuery.data.regionId ?? undefined,
+    }))
+  }, [selectedFacilityQuery.data])
+
+  const saveMutation = useMutation({
+    mutationFn: () => cariService.createUnitElevator(b2bUnitId, toB2BUnitElevatorPayload(form)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['b2bunits', 'elevators', b2bUnitId] })
+      toast({
+        title: 'Başarılı',
+        description: 'Asansör oluşturuldu.',
+        variant: 'success',
+      })
+      setFieldErrors({})
+      setForm({ ...initialB2BUnitElevatorForm })
+      onSaved?.()
+    },
+    onError: (error: unknown) => {
+      const mapped = parseB2BUnitElevatorFieldErrors(error)
+      if (Object.keys(mapped).length > 0) {
+        setFieldErrors(mapped)
+      }
+      toast({
+        title: 'Hata',
+        description: getUserFriendlyErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const setField = <K extends ElevatorFieldKey>(key: K, value: B2BUnitElevatorFormState[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }))
+    setFieldErrors((prev) => ({ ...prev, [key]: undefined }))
+  }
+
+  const handleSubmit = () => {
+    const errors = validateB2BUnitElevatorForm(form)
+    setFieldErrors(errors)
+
+    if (Object.keys(errors).length > 0) {
+      toast({
+        title: 'Hata',
+        description: 'Lütfen zorunlu alanları ve form doğrulamasını kontrol edin.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    saveMutation.mutate()
+  }
+
+  if (!canManageElevators) {
+    return renderUnauthorizedMessage()
+  }
+
+  return (
+    <div className="space-y-5">
+      <h2 className="text-lg font-semibold">ASANSÖR EKLE</h2>
+      {elevatorId ? (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Asansör düzenleme akışı yakında bu ekrana entegre edilecektir.
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Tesis (Bina) Seç *</Label>
+          <Select
+            value={form.facilityId ? String(form.facilityId) : undefined}
+            onValueChange={(value) => {
+              setForm((prev) => ({
+                ...prev,
+                facilityId: Number(value),
+                regionId: undefined,
+              }))
+              setFieldErrors((prev) => ({
+                ...prev,
+                facilityId: undefined,
+                regionId: undefined,
+              }))
+            }}
+          >
+            <SelectTrigger className={fieldErrors.facilityId ? 'border-destructive' : ''}>
+              <SelectValue placeholder="Tesis (Bina) seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              {(unitFacilitiesQuery.data || []).map((facility) => (
+                <SelectItem key={facility.id} value={String(facility.id)}>
+                  {facility.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {fieldErrors.facilityId ? <p className="text-sm text-destructive">{fieldErrors.facilityId}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Bölge Seç</Label>
+          <Select
+            value={form.regionId ? String(form.regionId) : undefined}
+            onValueChange={(value) => setField('regionId', Number(value))}
+            disabled={regionsQuery.isLoading || !form.facilityId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Bölge seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              {(regionsQuery.data || []).map((region) => (
+                <SelectItem key={region.id} value={String(region.id)}>
+                  {region.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-name">Asansör Adı *</Label>
+          <Input
+            id="b2bunit-elevator-name"
+            value={form.name || ''}
+            onChange={(event) => setField('name', event.target.value)}
+            className={fieldErrors.name ? 'border-destructive' : ''}
+          />
+          {fieldErrors.name ? <p className="text-sm text-destructive">{fieldErrors.name}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Bakım Türü Seç</Label>
+          <Select
+            value={form.maintenanceType || undefined}
+            onValueChange={(value) => setField('maintenanceType', value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Bakım türü seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              {ELEVATOR_MAINTENANCE_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-identity-number">Asansör Kimlik Numarası *</Label>
+          <Input
+            id="b2bunit-elevator-identity-number"
+            value={form.identityNumber || ''}
+            onChange={(event) => setField('identityNumber', event.target.value)}
+            className={fieldErrors.identityNumber ? 'border-destructive' : ''}
+          />
+          {fieldErrors.identityNumber ? (
+            <p className="text-sm text-destructive">{fieldErrors.identityNumber}</p>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Asansör Türü/Cinsi</Label>
+          <Select
+            value={form.elevatorType || undefined}
+            onValueChange={(value) => setField('elevatorType', value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Asansör türü seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              {ELEVATOR_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Kapı Tipi</Label>
+          <Select value={form.doorType || undefined} onValueChange={(value) => setField('doorType', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Kapı tipi seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              {ELEVATOR_DOOR_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Tahrik Türü</Label>
+          <Select value={form.hazardType || undefined} onValueChange={(value) => setField('hazardType', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Tahrik türü seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              {ELEVATOR_HAZARD_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-brand">Marka</Label>
+          <Input
+            id="b2bunit-elevator-brand"
+            value={form.brand || ''}
+            onChange={(event) => setField('brand', event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-construction-year">Yapım Yılı</Label>
+          <Input
+            id="b2bunit-elevator-construction-year"
+            type="number"
+            min={0}
+            value={form.constructionYear ?? ''}
+            onChange={(event) => {
+              const value = event.target.value
+              setField('constructionYear', value === '' ? undefined : Number(value))
+            }}
+            className={fieldErrors.constructionYear ? 'border-destructive' : ''}
+          />
+          {fieldErrors.constructionYear ? (
+            <p className="text-sm text-destructive">{fieldErrors.constructionYear}</p>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-stop-count">Durak Sayısı</Label>
+          <Input
+            id="b2bunit-elevator-stop-count"
+            type="number"
+            min={0}
+            value={form.stopCount ?? ''}
+            onChange={(event) => {
+              const value = event.target.value
+              setField('stopCount', value === '' ? undefined : Number(value))
+            }}
+            className={fieldErrors.stopCount ? 'border-destructive' : ''}
+          />
+          {fieldErrors.stopCount ? <p className="text-sm text-destructive">{fieldErrors.stopCount}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-capacity">Kapasite Kişi/Kg</Label>
+          <Input
+            id="b2bunit-elevator-capacity"
+            type="number"
+            min={0}
+            value={form.capacity ?? ''}
+            onChange={(event) => {
+              const value = event.target.value
+              setField('capacity', value === '' ? undefined : Number(value))
+            }}
+            className={fieldErrors.capacity ? 'border-destructive' : ''}
+          />
+          {fieldErrors.capacity ? <p className="text-sm text-destructive">{fieldErrors.capacity}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-speed">Hız m/s</Label>
+          <Input
+            id="b2bunit-elevator-speed"
+            type="number"
+            min={0}
+            step="0.01"
+            value={form.speed ?? ''}
+            onChange={(event) => {
+              const value = event.target.value
+              setField('speed', value === '' ? undefined : Number(value))
+            }}
+            className={fieldErrors.speed ? 'border-destructive' : ''}
+          />
+          {fieldErrors.speed ? <p className="text-sm text-destructive">{fieldErrors.speed}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Garanti Durumu</Label>
+          <Select
+            value={form.warrantyStatus || undefined}
+            onValueChange={(value) => setField('warrantyStatus', value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Garanti durumu seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              {ELEVATOR_WARRANTY_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option === 'GARANTILI' ? 'Garantili' : 'Garantisiz'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-warranty-end-date">Garanti Bitiş Tarihi</Label>
+          <Input
+            id="b2bunit-elevator-warranty-end-date"
+            type="date"
+            value={form.warrantyEndDate || ''}
+            onChange={(event) => setField('warrantyEndDate', event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-maintenance-staff">Bakım Personeli</Label>
+          <Input
+            id="b2bunit-elevator-maintenance-staff"
+            type="number"
+            min={1}
+            placeholder="Personel ID"
+            value={form.maintenanceStaffId ?? ''}
+            onChange={(event) => {
+              const value = event.target.value
+              setField('maintenanceStaffId', value === '' ? undefined : Number(value))
+            }}
+            className={fieldErrors.maintenanceStaffId ? 'border-destructive' : ''}
+          />
+          {fieldErrors.maintenanceStaffId ? (
+            <p className="text-sm text-destructive">{fieldErrors.maintenanceStaffId}</p>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-failure-staff">Arıza Personeli</Label>
+          <Input
+            id="b2bunit-elevator-failure-staff"
+            type="number"
+            min={1}
+            placeholder="Personel ID"
+            value={form.failureStaffId ?? ''}
+            onChange={(event) => {
+              const value = event.target.value
+              setField('failureStaffId', value === '' ? undefined : Number(value))
+            }}
+            className={fieldErrors.failureStaffId ? 'border-destructive' : ''}
+          />
+          {fieldErrors.failureStaffId ? <p className="text-sm text-destructive">{fieldErrors.failureStaffId}</p> : null}
+        </div>
+
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="b2bunit-elevator-address-text">Adres</Label>
+          <Textarea
+            id="b2bunit-elevator-address-text"
+            rows={3}
+            value={form.addressText || ''}
+            onChange={(event) => setField('addressText', event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="b2bunit-elevator-description">Açıklama</Label>
+          <Textarea
+            id="b2bunit-elevator-description"
+            rows={3}
+            value={form.description || ''}
+            onChange={(event) => setField('description', event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-map-lat">Enlem (Lat)</Label>
+          <Input
+            id="b2bunit-elevator-map-lat"
+            type="number"
+            step="0.000001"
+            value={form.mapLat ?? ''}
+            onChange={(event) => {
+              const value = event.target.value
+              setField('mapLat', value === '' ? undefined : Number(value))
+            }}
+            className={fieldErrors.mapLat ? 'border-destructive' : ''}
+          />
+          {fieldErrors.mapLat ? <p className="text-sm text-destructive">{fieldErrors.mapLat}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="b2bunit-elevator-map-lng">Boylam (Lng)</Label>
+          <Input
+            id="b2bunit-elevator-map-lng"
             type="number"
             step="0.000001"
             value={form.mapLng ?? ''}

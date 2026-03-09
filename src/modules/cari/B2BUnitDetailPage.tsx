@@ -21,8 +21,11 @@ import {
   B2BUnitDetailFilterPanel,
   B2BUnitCreditCardCollectionPanel,
   B2BUnitCreditCardPaymentPanel,
+  B2BUnitElevatorCreatePanel,
+  B2BUnitElevatorListPanel,
   B2BUnitFacilityCreatePanel,
   B2BUnitFacilityListPanel,
+  B2BUnitMaintenanceFailureListPanel,
   B2BUnitManualCreditPanel,
   B2BUnitManualDebitPanel,
   B2BUnitPaytrCollectionPanel,
@@ -61,6 +64,9 @@ type DetailPanelKey =
   | 'promissoryNotePayment'
   | 'facilityList'
   | 'facilityCreate'
+  | 'elevatorList'
+  | 'elevatorCreate'
+  | 'maintenanceFailureList'
 
 const INVOICE_SUBMENU_LABELS: Record<'purchaseInvoice' | 'salesInvoice', string> = {
   purchaseInvoice: 'Alış Yap',
@@ -105,6 +111,15 @@ const FACILITY_SUBMENU_LABELS: Record<'facilityList' | 'facilityCreate', string>
   facilityCreate: 'Tesis (Bina) Ekle',
 }
 
+const ELEVATOR_SUBMENU_LABELS: Record<'elevatorList' | 'elevatorCreate', string> = {
+  elevatorList: 'Asansörler',
+  elevatorCreate: 'Asansör Ekle',
+}
+
+const MAINTENANCE_FAILURE_SUBMENU_LABELS: Record<'maintenanceFailureList', string> = {
+  maintenanceFailureList: 'Bakım-Arıza',
+}
+
 function formatAmount(value: number): string {
   return value.toLocaleString('tr-TR', {
     minimumFractionDigits: 2,
@@ -117,9 +132,13 @@ function renderPanel(
   b2bUnitId: number,
   options: {
     editingFacilityId: number | null
+    editingElevatorId: number | null
     onOpenCreateFacility: () => void
     onOpenEditFacility: (facilityId: number) => void
     onFacilitySaved: () => void
+    onOpenCreateElevator: () => void
+    onOpenEditElevator: (elevatorId: number) => void
+    onElevatorSaved: () => void
   },
 ) {
   if (menu === 'filter') return <B2BUnitDetailFilterPanel b2bUnitId={b2bUnitId} />
@@ -160,6 +179,27 @@ function renderPanel(
       />
     )
   }
+  if (menu === 'elevatorList') {
+    return (
+      <B2BUnitElevatorListPanel
+        b2bUnitId={b2bUnitId}
+        onOpenCreate={options.onOpenCreateElevator}
+        onOpenEdit={options.onOpenEditElevator}
+      />
+    )
+  }
+  if (menu === 'elevatorCreate') {
+    return (
+      <B2BUnitElevatorCreatePanel
+        b2bUnitId={b2bUnitId}
+        elevatorId={options.editingElevatorId}
+        onSaved={options.onElevatorSaved}
+      />
+    )
+  }
+  if (menu === 'maintenanceFailureList') {
+    return <B2BUnitMaintenanceFailureListPanel b2bUnitId={b2bUnitId} />
+  }
   return <B2BUnitReportingPanel b2bUnitId={b2bUnitId} />
 }
 
@@ -171,6 +211,7 @@ export function B2BUnitDetailPage() {
   const isValidId = Number.isFinite(parsedId) && parsedId > 0
   const canUseFinancePanels = hasAnyRole(['STAFF_USER'])
   const canManageFacilities = hasAnyRole(['STAFF_USER'])
+  const canManageElevators = hasAnyRole(['STAFF_USER'])
 
   const detailQuery = useQuery({
     queryKey: ['b2bunits', 'detail', parsedId],
@@ -201,7 +242,9 @@ export function B2BUnitDetailPage() {
   const [collectionExpanded, setCollectionExpanded] = useState(false)
   const [paymentExpanded, setPaymentExpanded] = useState(false)
   const [facilityExpanded, setFacilityExpanded] = useState(false)
+  const [elevatorExpanded, setElevatorExpanded] = useState(false)
   const [editingFacilityId, setEditingFacilityId] = useState<number | null>(null)
+  const [editingElevatorId, setEditingElevatorId] = useState<number | null>(null)
 
   useEffect(() => {
     const validKeys: DetailPanelKey[] = [
@@ -227,6 +270,9 @@ export function B2BUnitDetailPage() {
         : []),
       'facilityList',
       ...(canManageFacilities ? (['facilityCreate'] as const) : []),
+      'elevatorList',
+      ...(canManageElevators ? (['elevatorCreate'] as const) : []),
+      'maintenanceFailureList',
     ]
 
     if (!validKeys.includes(activeMenu)) {
@@ -247,7 +293,7 @@ export function B2BUnitDetailPage() {
         setActiveMenu((firstVisibleMenu || 'filter') as DetailPanelKey)
       }
     }
-  }, [activeMenu, canManageFacilities, canUseFinancePanels, visibleMenus])
+  }, [activeMenu, canManageElevators, canManageFacilities, canUseFinancePanels, visibleMenus])
 
   const isInvoiceChildActive = activeMenu === 'purchaseInvoice' || activeMenu === 'salesInvoice'
   const isAccountChildActive = activeMenu === 'manualDebit' || activeMenu === 'manualCredit'
@@ -265,11 +311,13 @@ export function B2BUnitDetailPage() {
     activeMenu === 'checkPayment' ||
     activeMenu === 'promissoryNotePayment'
   const isFacilityChildActive = activeMenu === 'facilityList' || activeMenu === 'facilityCreate'
+  const isElevatorChildActive = activeMenu === 'elevatorList' || activeMenu === 'elevatorCreate'
   const showInvoiceChildren = canUseFinancePanels && (invoiceExpanded || isInvoiceChildActive)
   const showAccountChildren = canUseFinancePanels && (accountExpanded || isAccountChildActive)
   const showCollectionChildren = canUseFinancePanels && (collectionExpanded || isCollectionChildActive)
   const showPaymentChildren = canUseFinancePanels && (paymentExpanded || isPaymentChildActive)
   const showFacilityChildren = facilityExpanded || isFacilityChildActive
+  const showElevatorChildren = elevatorExpanded || isElevatorChildActive
 
   const handleOpenFacilityList = () => {
     setFacilityExpanded(true)
@@ -291,6 +339,26 @@ export function B2BUnitDetailPage() {
   const handleFacilitySaved = () => {
     setEditingFacilityId(null)
     setActiveMenu('facilityList')
+  }
+
+  const handleOpenElevatorList = () => {
+    setElevatorExpanded(true)
+    setActiveMenu('elevatorList')
+  }
+
+  const handleOpenElevatorCreate = () => {
+    setElevatorExpanded(true)
+    setEditingElevatorId(null)
+    setActiveMenu('elevatorCreate')
+  }
+
+  const handleOpenElevatorEdit = (elevatorId: number) => {
+    void elevatorId
+  }
+
+  const handleElevatorSaved = () => {
+    setEditingElevatorId(null)
+    setActiveMenu('elevatorList')
   }
 
   const activeMenuLabel = useMemo(() => {
@@ -321,6 +389,12 @@ export function B2BUnitDetailPage() {
     }
     if (activeMenu === 'facilityList' || activeMenu === 'facilityCreate') {
       return FACILITY_SUBMENU_LABELS[activeMenu]
+    }
+    if (activeMenu === 'elevatorList' || activeMenu === 'elevatorCreate') {
+      return ELEVATOR_SUBMENU_LABELS[activeMenu]
+    }
+    if (activeMenu === 'maintenanceFailureList') {
+      return MAINTENANCE_FAILURE_SUBMENU_LABELS[activeMenu]
     }
     return visibleMenus.find((item) => item.key === activeMenu)?.label || 'Detay'
   }, [activeMenu, visibleMenus])
@@ -779,6 +853,67 @@ export function B2BUnitDetailPage() {
                   ) : null}
                 </div>
               ) : null}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setElevatorExpanded(true)
+                  if (!isElevatorChildActive) {
+                    setActiveMenu('elevatorList')
+                  }
+                }}
+                className={cn(
+                  'w-full rounded-md px-3 py-2 text-left text-sm transition',
+                  isElevatorChildActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted text-foreground',
+                )}
+              >
+                Asansör
+              </button>
+              {showElevatorChildren ? (
+                <div className="space-y-1 pl-3">
+                  <button
+                    type="button"
+                    onClick={handleOpenElevatorList}
+                    className={cn(
+                      'w-full rounded-md px-3 py-2 text-left text-sm transition',
+                      activeMenu === 'elevatorList'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted text-foreground',
+                    )}
+                  >
+                    Asansörler
+                  </button>
+                  {canManageElevators ? (
+                    <button
+                      type="button"
+                      onClick={handleOpenElevatorCreate}
+                      className={cn(
+                        'w-full rounded-md px-3 py-2 text-left text-sm transition',
+                        activeMenu === 'elevatorCreate'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'hover:bg-muted text-foreground',
+                      )}
+                    >
+                      Asansör Ekle
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => setActiveMenu('maintenanceFailureList')}
+                className={cn(
+                  'w-full rounded-md px-3 py-2 text-left text-sm transition',
+                  activeMenu === 'maintenanceFailureList'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted text-foreground',
+                )}
+              >
+                Bakım-Arıza
+              </button>
             </CardContent>
           </Card>
         </div>
@@ -790,9 +925,13 @@ export function B2BUnitDetailPage() {
           <CardContent>
             {renderPanel(activeMenu, detail.id || parsedId, {
               editingFacilityId,
+              editingElevatorId,
               onOpenCreateFacility: handleOpenFacilityCreate,
               onOpenEditFacility: handleOpenFacilityEdit,
               onFacilitySaved: handleFacilitySaved,
+              onOpenCreateElevator: handleOpenElevatorCreate,
+              onOpenEditElevator: handleOpenElevatorEdit,
+              onElevatorSaved: handleElevatorSaved,
             })}
           </CardContent>
         </Card>

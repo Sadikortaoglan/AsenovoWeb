@@ -155,6 +155,78 @@ export interface B2BUnitFacilityFormPayload {
   attachmentUrl?: string
 }
 
+export interface B2BUnitElevator {
+  id?: number
+  name: string
+  facilityId?: number | null
+  facilityName?: string | null
+  identityNumber?: string | null
+  maintenanceType?: string | null
+  elevatorType?: string | null
+  doorType?: string | null
+  hazardType?: string | null
+  brand?: string | null
+  constructionYear?: number | null
+  stopCount?: number | null
+  capacity?: number | null
+  speed?: number | null
+  warrantyStatus?: string | null
+  warrantyEndDate?: string | null
+  maintenanceStaffId?: number | null
+  failureStaffId?: number | null
+  addressText?: string | null
+  description?: string | null
+  mapLat?: number | null
+  mapLng?: number | null
+  mapAddressQuery?: string | null
+  status?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface B2BUnitElevatorFormPayload {
+  facilityId: number
+  identityNumber: string
+  name: string
+  maintenanceType?: string
+  elevatorType?: string
+  doorType?: string
+  hazardType?: string
+  brand?: string
+  constructionYear?: number
+  stopCount?: number
+  capacity?: number
+  speed?: number
+  warrantyStatus?: string
+  warrantyEndDate?: string
+  maintenanceStaffId?: number
+  failureStaffId?: number
+  addressText?: string
+  description?: string
+  mapLat?: number
+  mapLng?: number
+  mapAddressQuery?: string
+  labelDate?: string
+  labelType?: string
+  expiryDate?: string
+  managerName?: string
+  managerTcIdentityNo?: string
+  managerPhone?: string
+  managerEmail?: string
+}
+
+export interface B2BUnitMaintenanceFailure {
+  id?: number
+  operationDate?: string | null
+  operationType?: string | null
+  sourceType?: string | null
+  elevatorId?: number | null
+  elevatorName?: string | null
+  facilityId?: number | null
+  facilityName?: string | null
+  status?: string | null
+}
+
 export interface B2BUnitInvoiceLinePayload {
   productName: string
   quantity: number
@@ -271,6 +343,22 @@ interface ListB2BUnitTransactionsParams {
 }
 
 interface ListB2BUnitFacilitiesParams {
+  query?: string
+  search?: string
+  page: number
+  size: number
+  sort?: string
+}
+
+interface ListB2BUnitElevatorsParams {
+  query?: string
+  search?: string
+  page: number
+  size: number
+  sort?: string
+}
+
+interface ListB2BUnitMaintenanceFailuresParams {
   query?: string
   search?: string
   page: number
@@ -658,6 +746,65 @@ function toB2BUnitFacilityPayload(payload: B2BUnitFacilityFormPayload): B2BUnitF
   }
 }
 
+function normalizeB2BUnitElevator(raw: B2BUnitElevator): B2BUnitElevator {
+  return {
+    ...raw,
+    facilityId: raw.facilityId != null ? Number(raw.facilityId) : null,
+    constructionYear: raw.constructionYear != null ? Number(raw.constructionYear) : null,
+    stopCount: raw.stopCount != null ? Number(raw.stopCount) : null,
+    capacity: raw.capacity != null ? Number(raw.capacity) : null,
+    speed: raw.speed != null ? Number(raw.speed) : null,
+    maintenanceStaffId: raw.maintenanceStaffId != null ? Number(raw.maintenanceStaffId) : null,
+    failureStaffId: raw.failureStaffId != null ? Number(raw.failureStaffId) : null,
+    mapLat: raw.mapLat != null ? Number(raw.mapLat) : null,
+    mapLng: raw.mapLng != null ? Number(raw.mapLng) : null,
+  }
+}
+
+function toB2BUnitElevatorPayload(payload: B2BUnitElevatorFormPayload): B2BUnitElevatorFormPayload {
+  return {
+    facilityId: cleanNumber(payload.facilityId) ?? 0,
+    identityNumber: payload.identityNumber.trim(),
+    name: payload.name.trim(),
+    maintenanceType: cleanString(payload.maintenanceType),
+    elevatorType: cleanString(payload.elevatorType),
+    doorType: cleanString(payload.doorType),
+    hazardType: cleanString(payload.hazardType),
+    brand: cleanString(payload.brand),
+    constructionYear: cleanNumber(payload.constructionYear),
+    stopCount: cleanNumber(payload.stopCount),
+    capacity: cleanNumber(payload.capacity),
+    speed: cleanNumber(payload.speed),
+    warrantyStatus: cleanString(payload.warrantyStatus),
+    warrantyEndDate: cleanString(payload.warrantyEndDate),
+    maintenanceStaffId: cleanNumber(payload.maintenanceStaffId),
+    failureStaffId: cleanNumber(payload.failureStaffId),
+    addressText: cleanString(payload.addressText),
+    description: cleanString(payload.description),
+    mapLat: cleanNumber(payload.mapLat),
+    mapLng: cleanNumber(payload.mapLng),
+    mapAddressQuery: cleanString(payload.mapAddressQuery),
+    labelDate: cleanString(payload.labelDate),
+    labelType: cleanString(payload.labelType),
+    expiryDate: cleanString(payload.expiryDate),
+    managerName: cleanString(payload.managerName),
+    managerTcIdentityNo: cleanString(payload.managerTcIdentityNo),
+    managerPhone: cleanString(payload.managerPhone),
+    managerEmail: cleanString(payload.managerEmail),
+  }
+}
+
+function normalizeB2BUnitMaintenanceFailure(
+  raw: B2BUnitMaintenanceFailure,
+): B2BUnitMaintenanceFailure {
+  return {
+    ...raw,
+    id: raw.id != null ? Number(raw.id) : undefined,
+    elevatorId: raw.elevatorId != null ? Number(raw.elevatorId) : null,
+    facilityId: raw.facilityId != null ? Number(raw.facilityId) : null,
+  }
+}
+
 function toAbsoluteApiUrl(path: string): string {
   const base = resolveApiBaseUrl().replace(/\/$/, '')
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
@@ -743,6 +890,38 @@ export const cariService = {
     }))
   },
 
+  listUnitElevators(
+    id: number,
+    params: ListB2BUnitElevatorsParams,
+  ): Promise<SpringPage<B2BUnitElevator>> {
+    return getPage<B2BUnitElevator>(`/b2b-units/${id}/elevators`, {
+      query: params.query,
+      search: params.search,
+      page: params.page,
+      size: params.size,
+      sort: params.sort,
+    }).then((page) => ({
+      ...page,
+      content: page.content.map((elevator) => normalizeB2BUnitElevator(elevator)),
+    }))
+  },
+
+  listUnitMaintenanceFailures(
+    id: number,
+    params: ListB2BUnitMaintenanceFailuresParams,
+  ): Promise<SpringPage<B2BUnitMaintenanceFailure>> {
+    return getPage<B2BUnitMaintenanceFailure>(`/b2b-units/${id}/maintenance-failures`, {
+      query: params.query,
+      search: params.search,
+      page: params.page,
+      size: params.size,
+      sort: params.sort,
+    }).then((page) => ({
+      ...page,
+      content: page.content.map((item) => normalizeB2BUnitMaintenanceFailure(item)),
+    }))
+  },
+
   lookupWarehouses(query?: string): Promise<LookupOption[]> {
     return apiClient
       .get<ApiResponse<LookupOption[]>>('/warehouses/lookup', { params: { query } })
@@ -753,6 +932,14 @@ export const cariService = {
     return apiClient
       .get<ApiResponse<LookupOption[]>>('/facilities/lookup', {
         params: { b2bUnitId, query },
+      })
+      .then((response) => unwrapArrayResponse(response.data, true))
+  },
+
+  lookupUnitFacilities(b2bUnitId: number, query?: string): Promise<LookupOption[]> {
+    return apiClient
+      .get<ApiResponse<LookupOption[]>>(`/b2b-units/${b2bUnitId}/facilities/lookup`, {
+        params: { query },
       })
       .then((response) => unwrapArrayResponse(response.data, true))
   },
@@ -938,6 +1125,19 @@ export const cariService = {
         toB2BUnitFacilityPayload(payload),
       )
       .then((response) => normalizeB2BUnitFacility(unwrapResponse(response.data)))
+  },
+
+  createUnitElevator(b2bUnitId: number, payload: B2BUnitElevatorFormPayload): Promise<B2BUnitElevator> {
+    return apiClient
+      .post<ApiResponse<B2BUnitElevator>>(
+        `/b2b-units/${b2bUnitId}/elevators`,
+        toB2BUnitElevatorPayload(payload),
+      )
+      .then((response) => normalizeB2BUnitElevator(unwrapResponse(response.data)))
+  },
+
+  deleteElevator(id: number): Promise<void> {
+    return apiClient.delete(`/elevators/${id}`).then(() => undefined)
   },
 
   getUnitReportHtml(id: number, startDate: string, endDate: string): Promise<string> {
