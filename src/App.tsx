@@ -46,6 +46,7 @@ import { CurrenciesPage } from './modules/cari/CurrenciesPage'
 import { B2BUnitMePage } from './modules/cari/B2BUnitMePage'
 import { FacilitiesPage } from './modules/facilities/FacilitiesPage'
 import { FacilityFormPage } from './modules/facilities/FacilityFormPage'
+import { FacilityDetailPage } from './modules/facilities/FacilityDetailPage'
 import { ForbiddenPage } from './pages/ForbiddenPage'
 import { QrCodesPage } from './modules/qr-codes/QrCodesPage'
 
@@ -173,6 +174,7 @@ function AppRoutes() {
         />
         <Route path="currencies" element={<CurrenciesPage />} />
         <Route path="facilities" element={<FacilitiesPage />} />
+        <Route path="facilities/:id" element={<FacilityDetailPage />} />
         <Route
           path="facilities/new"
           element={

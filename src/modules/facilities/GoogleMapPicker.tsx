@@ -45,6 +45,7 @@ interface GoogleMapPickerProps {
   addressQuery?: string
   onAddressQueryChange: (value: string) => void
   onLocationChange: (lat: number, lng: number) => void
+  readOnly?: boolean
 }
 
 export function GoogleMapPicker({
@@ -53,6 +54,7 @@ export function GoogleMapPicker({
   addressQuery,
   onAddressQueryChange,
   onLocationChange,
+  readOnly = false,
 }: GoogleMapPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
@@ -90,14 +92,16 @@ export function GoogleMapPicker({
 
         geocoderRef.current = new google.maps.Geocoder()
 
-        mapRef.current.addListener('click', (event: any) => {
-          const clickedLat = event?.latLng?.lat?.()
-          const clickedLng = event?.latLng?.lng?.()
-          if (clickedLat == null || clickedLng == null) return
+        if (!readOnly) {
+          mapRef.current.addListener('click', (event: any) => {
+            const clickedLat = event?.latLng?.lat?.()
+            const clickedLng = event?.latLng?.lng?.()
+            if (clickedLat == null || clickedLng == null) return
 
-          placeMarker(clickedLat, clickedLng)
-          onLocationChange(clickedLat, clickedLng)
-        })
+            placeMarker(clickedLat, clickedLng)
+            onLocationChange(clickedLat, clickedLng)
+          })
+        }
 
         if (lat != null && lng != null) {
           placeMarker(lat, lng)
@@ -135,15 +139,17 @@ export function GoogleMapPicker({
       markerRef.current = new window.google.maps.Marker({
         position,
         map: mapRef.current,
-        draggable: true,
+        draggable: !readOnly,
       })
 
-      markerRef.current.addListener('dragend', (event: any) => {
-        const draggedLat = event?.latLng?.lat?.()
-        const draggedLng = event?.latLng?.lng?.()
-        if (draggedLat == null || draggedLng == null) return
-        onLocationChange(draggedLat, draggedLng)
-      })
+      if (!readOnly) {
+        markerRef.current.addListener('dragend', (event: any) => {
+          const draggedLat = event?.latLng?.lat?.()
+          const draggedLng = event?.latLng?.lng?.()
+          if (draggedLat == null || draggedLng == null) return
+          onLocationChange(draggedLat, draggedLng)
+        })
+      }
     } else {
       markerRef.current.setPosition(position)
       markerRef.current.setMap(mapRef.current)
@@ -185,39 +191,43 @@ export function GoogleMapPicker({
 
   return (
     <div className="space-y-3 rounded-lg border p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="mapAddressSearch">Adres Ara</Label>
-          <Input
-            id="mapAddressSearch"
-            placeholder="Adres girin ve konumu buldurun"
-            value={addressQuery || ''}
-            onChange={(event) => onAddressQueryChange(event.target.value)}
-          />
+      {!readOnly ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="mapAddressSearch">Adres Ara</Label>
+            <Input
+              id="mapAddressSearch"
+              placeholder="Adres girin ve konumu buldurun"
+              value={addressQuery || ''}
+              onChange={(event) => onAddressQueryChange(event.target.value)}
+            />
+          </div>
+          <Button type="button" variant="outline" onClick={handleAddressSearch} disabled={!canRenderMap || !isMapLoaded}>
+            Ara
+          </Button>
         </div>
-        <Button type="button" variant="outline" onClick={handleAddressSearch} disabled={!canRenderMap || !isMapLoaded}>
-          Ara
-        </Button>
-      </div>
+      ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant={mapType === 'roadmap' ? 'default' : 'outline'}
-          onClick={() => setMapType('roadmap')}
-          disabled={!canRenderMap || !isMapLoaded}
-        >
-          Harita
-        </Button>
-        <Button
-          type="button"
-          variant={mapType === 'satellite' ? 'default' : 'outline'}
-          onClick={() => setMapType('satellite')}
-          disabled={!canRenderMap || !isMapLoaded}
-        >
-          Uydu
-        </Button>
-      </div>
+      {!readOnly ? (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={mapType === 'roadmap' ? 'default' : 'outline'}
+            onClick={() => setMapType('roadmap')}
+            disabled={!canRenderMap || !isMapLoaded}
+          >
+            Harita
+          </Button>
+          <Button
+            type="button"
+            variant={mapType === 'satellite' ? 'default' : 'outline'}
+            onClick={() => setMapType('satellite')}
+            disabled={!canRenderMap || !isMapLoaded}
+          >
+            Uydu
+          </Button>
+        </div>
+      ) : null}
 
       {!canRenderMap ? (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">

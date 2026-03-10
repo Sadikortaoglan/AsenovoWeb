@@ -396,7 +396,7 @@ function ElevatorFormDialog({
 }) {
   const [formData, setFormData] = useState({
     kimlikNo: '',
-    bina: '',
+    facilityId: undefined as number | undefined,
     adres: '',
     durak: '',
     labelType: '' as ElevatorLabelType | '',
@@ -409,6 +409,11 @@ function ElevatorFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const facilitiesLookupQuery = useQuery({
+    queryKey: ['facilities', 'lookup', 'elevator-form'],
+    queryFn: () => elevatorService.lookupFacilities(),
+  })
+  const facilityOptions = facilitiesLookupQuery.data || []
 
   // Duration selection removed - End Date must be selected manually
 
@@ -419,7 +424,7 @@ function ElevatorFormDialog({
       
       setFormData({
         kimlikNo: elevator.kimlikNo || '',
-        bina: elevator.bina || '',
+        facilityId: elevator.facilityId ?? undefined,
         adres: elevator.adres || '',
         durak: elevator.durak || '',
         labelType: (elevator.labelType || '') as ElevatorLabelType | '',
@@ -432,7 +437,7 @@ function ElevatorFormDialog({
     } else {
       setFormData({
         kimlikNo: '',
-        bina: '',
+        facilityId: undefined,
         adres: '',
         durak: '',
         labelType: '' as ElevatorLabelType | '',
@@ -445,6 +450,20 @@ function ElevatorFormDialog({
     }
     setErrors({})
   }, [elevator])
+
+  useEffect(() => {
+    if (!elevator || formData.facilityId || facilityOptions.length === 0) return
+    const elevatorBuilding = (elevator.bina || '').trim().toLocaleLowerCase('tr-TR')
+    if (!elevatorBuilding) return
+
+    const matchedFacility = facilityOptions.find(
+      (facility) => facility.name.trim().toLocaleLowerCase('tr-TR') === elevatorBuilding,
+    )
+
+    if (matchedFacility) {
+      setFormData((prev) => ({ ...prev, facilityId: matchedFacility.id }))
+    }
+  }, [elevator, formData.facilityId, facilityOptions])
 
   // Validation functions
   const validateTcIdentity = (tc: string): string => {
@@ -472,6 +491,10 @@ function ElevatorFormDialog({
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
+
+    if (!formData.facilityId) {
+      newErrors.facilityId = 'Tesis (Bina) seçimi zorunlu'
+    }
     
     if (!formData.labelType) {
       newErrors.labelType = 'Etiket tipi seçilmelidir'
@@ -521,10 +544,12 @@ function ElevatorFormDialog({
     mutationFn: (data: typeof formData) => {
       // Normalize phone number (already normalized in handleSubmit, but ensure here too)
       const normalizedPhone = normalizePhone(data.managerPhoneNumber)
+      const selectedFacilityName = facilityOptions.find((facility) => facility.id === data.facilityId)?.name || ''
       
       return elevatorService.create({
         kimlikNo: data.kimlikNo,
-        bina: data.bina,
+        facilityId: Number(data.facilityId),
+        bina: selectedFacilityName,
         adres: data.adres,
         durak: data.durak,
         labelType: data.labelType as ElevatorLabelType,
@@ -537,6 +562,7 @@ function ElevatorFormDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['elevators'] })
+      queryClient.invalidateQueries({ queryKey: ['facilities', 'detail'] })
       toast({
         title: 'Başarılı',
         description: 'Asansör başarıyla eklendi.',
@@ -559,10 +585,12 @@ function ElevatorFormDialog({
       if (!elevator) throw new Error('Elevator ID required')
       // Normalize phone number (already normalized in handleSubmit, but ensure here too)
       const normalizedPhone = normalizePhone(data.managerPhoneNumber)
+      const selectedFacilityName = facilityOptions.find((facility) => facility.id === data.facilityId)?.name || ''
       
       return elevatorService.update(elevator.id, {
         kimlikNo: data.kimlikNo,
-        bina: data.bina,
+        facilityId: Number(data.facilityId),
+        bina: selectedFacilityName,
         adres: data.adres,
         durak: data.durak,
         labelType: data.labelType as ElevatorLabelType,
@@ -575,6 +603,7 @@ function ElevatorFormDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['elevators'] })
+      queryClient.invalidateQueries({ queryKey: ['facilities', 'detail'] })
       toast({
         title: 'Başarılı',
         description: 'Asansör başarıyla güncellendi.',
@@ -641,11 +670,12 @@ function ElevatorFormDialog({
   const isFormValid = () => {
     return (
       formData.kimlikNo &&
-      formData.bina &&
+      formData.facilityId &&
       formData.adres &&
       formData.labelType &&
       formData.labelDate &&
       formData.endDate && // End Date is mandatory
+      !errors.facilityId &&
       !errors.endDate && // No validation errors for end date
       !errors.managerName &&
       !errors.managerTcIdentityNumber &&
@@ -679,14 +709,31 @@ function ElevatorFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bina">Bina *</Label>
-              <Input
-                id="bina"
-                value={formData.bina}
-                onChange={(e) => setFormData({ ...formData, bina: e.target.value })}
-                required
-                className="w-full"
-              />
+              <Label>Tesis (Bina) Seç *</Label>
+              <Select
+                value={formData.facilityId ? String(formData.facilityId) : undefined}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, facilityId: Number(value) })
+                  setErrors({ ...errors, facilityId: '' })
+                }}
+                disabled={facilitiesLookupQuery.isLoading}
+              >
+                <SelectTrigger className={cn('w-full', errors.facilityId && 'border-destructive')}>
+                  <SelectValue
+                    placeholder={facilitiesLookupQuery.isLoading ? 'Tesisler yükleniyor...' : 'Tesis (Bina) seçin'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {facilityOptions.map((facility) => (
+                    <SelectItem key={facility.id} value={String(facility.id)}>
+                      {facility.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.facilityId ? (
+                <p className="text-sm text-destructive">{errors.facilityId}</p>
+              ) : null}
             </div>
           </div>
           <div className="space-y-2">
@@ -872,11 +919,20 @@ function ElevatorFormDialog({
           <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto min-h-[44px]">
             İptal
           </Button>
+          {facilitiesLookupQuery.isError ? (
+            <p className="w-full text-xs text-destructive sm:w-auto sm:self-center">
+              Tesis listesi yüklenemedi.
+            </p>
+          ) : null}
           <Button 
             type="submit" 
             disabled={createMutation.isPending || updateMutation.isPending || !isFormValid()} 
             className="w-full sm:w-auto min-h-[44px]">
-            {elevator ? 'Güncelle' : 'Ekle'}
+            {createMutation.isPending || updateMutation.isPending
+              ? 'Kaydediliyor...'
+              : elevator
+                ? 'Güncelle'
+                : 'Ekle'}
           </Button>
         </DialogFooter>
       </form>

@@ -420,6 +420,15 @@ export function FacilitiesPage() {
                     </Button>
                   ) : null}
 
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => facility.id && navigate(`/facilities/${facility.id}`)}
+                    disabled={!facility.id}
+                  >
+                    Detay
+                  </Button>
+
                   {canDeleteFacilities ? (
                     <Button
                       size="sm"

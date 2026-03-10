@@ -9,6 +9,7 @@ export interface Elevator {
   id: number
   kimlikNo: string
   bina: string // Backend'den binaAdi olarak geliyor
+  facilityId?: number
   adres: string
   durak: string // Backend'den asansorNo olarak geliyor
   labelType?: LabelType // Etiket tipi (GREEN, BLUE, YELLOW, RED)
@@ -47,7 +48,8 @@ export interface Elevator {
 
 export interface CreateElevatorRequest {
   kimlikNo: string
-  bina: string
+  facilityId: number
+  bina?: string
   adres: string
   durak: string
   labelType: LabelType
@@ -59,6 +61,11 @@ export interface CreateElevatorRequest {
 }
 
 export interface UpdateElevatorRequest extends Partial<CreateElevatorRequest> {}
+
+export interface FacilityLookupOption {
+  id: number
+  name: string
+}
 
 // Backend'den gelen formatı frontend formatına çevir
 // YENİ BACKEND FIELD İSİMLERİ (eski field'lar KULLANILMIYOR):
@@ -95,11 +102,13 @@ function mapElevatorFromBackend(backend: any): Elevator {
   const labelType: LabelType | undefined = backend.labelType || backend.label_type
     ? (backend.labelType || backend.label_type).toUpperCase() as LabelType
     : undefined
+  const rawFacilityId = backend.facilityId ?? backend.facility_id ?? backend.facility?.id
 
   return {
     id: backend.id,
     kimlikNo: backend.identityNumber || '',
-    bina: backend.buildingName || '',
+    bina: backend.buildingName || backend.binaAdi || backend.facilityName || backend.facility?.name || '',
+    facilityId: rawFacilityId != null && Number.isFinite(Number(rawFacilityId)) ? Number(rawFacilityId) : undefined,
     adres: backend.address || '',
     durak: backend.elevatorNumber || '',
     labelType,
@@ -183,7 +192,7 @@ export const elevatorService = {
     // Ensure dates are in LocalDate format (YYYY-MM-DD)
     const backendRequest: any = {
       identityNumber: elevator.kimlikNo,
-      buildingName: elevator.bina,
+      facilityId: elevator.facilityId,
       address: elevator.adres,
       elevatorNumber: elevator.durak,
       labelType: elevator.labelType,
@@ -192,6 +201,9 @@ export const elevatorService = {
       managerName: elevator.managerName,
       managerTcIdentityNo: elevator.managerTcIdentityNumber,
       managerPhone: elevator.managerPhoneNumber,
+    }
+    if (elevator.bina) {
+      backendRequest.buildingName = elevator.bina
     }
     
     // Debug: Log payload before sending
@@ -205,6 +217,7 @@ export const elevatorService = {
   update: async (id: number, elevator: UpdateElevatorRequest): Promise<Elevator> => {
     const backendRequest: any = {}
     if (elevator.kimlikNo !== undefined) backendRequest.identityNumber = elevator.kimlikNo
+    if (elevator.facilityId !== undefined) backendRequest.facilityId = elevator.facilityId
     if (elevator.bina !== undefined) backendRequest.buildingName = elevator.bina
     if (elevator.adres !== undefined) backendRequest.address = elevator.adres
     if (elevator.durak !== undefined) backendRequest.elevatorNumber = elevator.durak
@@ -231,6 +244,19 @@ export const elevatorService = {
 
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(API_ENDPOINTS.ELEVATORS.BY_ID(id))
+  },
+
+  lookupFacilities: async (query?: string): Promise<FacilityLookupOption[]> => {
+    const { data } = await apiClient.get<ApiResponse<FacilityLookupOption[]>>('/facilities/lookup', {
+      params: { query },
+    })
+    const unwrapped = unwrapArrayResponse(data, true)
+    return (unwrapped || [])
+      .map((item) => ({
+        id: Number(item.id),
+        name: String(item.name || ''),
+      }))
+      .filter((item) => Number.isFinite(item.id) && item.id > 0 && item.name.trim().length > 0)
   },
 
   /**
@@ -273,4 +299,3 @@ export const elevatorService = {
     }
   },
 }
-
