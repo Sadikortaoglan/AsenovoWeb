@@ -24,6 +24,7 @@ import { RevisionOffersPage } from './pages/RevisionOffersPage'
 import { RevisionOffersConvertedPage } from './pages/RevisionOffersConvertedPage'
 import { RevisionStandardsPage } from './pages/RevisionStandardsPage'
 import { RevisionOfferFormPage } from './pages/RevisionOfferFormPage'
+import { RevisionStandardArticlesPage } from './pages/RevisionStandardArticlesPage'
 import { MaintenancePage } from './pages/maintenance/MaintenancePage'
 import { MaintenanceItemsPage } from './pages/maintenance/MaintenanceItemsPage'
 import { MaintenancePlanningPage } from './pages/maintenance/MaintenancePlanningPage'
@@ -201,6 +202,7 @@ function AppRoutes() {
         <Route path="revision-offers/:id/edit" element={<RevisionOfferFormPage />} />
         <Route path="revision-offers/converted" element={<RevisionOffersConvertedPage />} />
         <Route path="revision-standards" element={<RevisionStandardsPage />} />
+        <Route path="revision-standards/:standardId/articles" element={<RevisionStandardArticlesPage />} />
         <Route path="faults" element={<FaultsPage />} />
         <Route path="inspections" element={<InspectionsPage />} />
         <Route path="payments" element={<PaymentsPage />} />
