@@ -1,31 +1,24 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-// import { useNavigate } from 'react-router-dom' // Reserved for future use
+import { useNavigate } from 'react-router-dom'
 import { revisionOfferService, type RevisionOffer } from '@/services/revision-offer.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TableResponsive } from '@/components/ui/table-responsive'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Edit, Trash2, Search, Download } from 'lucide-react'
 import { formatDateShort, formatCurrency } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { RevisionOfferFormDialog } from './RevisionOfferFormDialog'
 
 export function RevisionOffersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedOffer, setSelectedOffer] = useState<RevisionOffer | null>(null)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [offerToDelete, setOfferToDelete] = useState<number | null>(null)
-  // const navigate = useNavigate() // Reserved for future use
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
@@ -110,22 +103,10 @@ export function RevisionOffersPage() {
           <h1 className="text-3xl font-bold">Revizyon Teklifleri</h1>
           <p className="text-muted-foreground">Tüm revizyon tekliflerinin listesi</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setSelectedOffer(null)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Yeni Teklif Oluştur
-            </Button>
-          </DialogTrigger>
-          <RevisionOfferFormDialog
-            offer={selectedOffer}
-            onClose={() => setIsDialogOpen(false)}
-            onSuccess={() => {
-              setIsDialogOpen(false)
-              queryClient.invalidateQueries({ queryKey: ['revision-offers'] })
-            }}
-          />
-        </Dialog>
+        <Button onClick={() => navigate('/revision-offers/new')}>
+          <Plus className="mr-2 h-4 w-4" />
+          Yeni Teklif Oluştur
+        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
@@ -235,19 +216,7 @@ export function RevisionOffersPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={async () => {
-                      try {
-                        const freshOffer = await revisionOfferService.getById(offer.id)
-                        setSelectedOffer(freshOffer)
-                        setIsDialogOpen(true)
-                      } catch (error) {
-                        toast({
-                          title: 'Hata',
-                          description: 'Teklif bilgileri yüklenirken bir hata oluştu.',
-                          variant: 'destructive',
-                        })
-                      }
-                    }}
+                    onClick={() => navigate(`/revision-offers/${offer.id}/edit`)}
                     className="h-11 w-11 sm:h-10 sm:w-10"
                     title="Düzenle"
                   >
