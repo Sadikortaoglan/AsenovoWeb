@@ -45,6 +45,16 @@ export interface Facility {
   updatedAt?: string
 }
 
+export interface FacilityDetailElevator {
+  id?: number
+  name: string
+}
+
+export interface FacilityDetail extends Facility {
+  attachmentPreviewUrl?: string | null
+  elevators?: FacilityDetailElevator[]
+}
+
 export interface FacilityAddress {
   cityId?: number | null
   cityName?: string | null
@@ -147,6 +157,35 @@ function normalizeFacility(raw: Facility): Facility {
   }
 }
 
+interface FacilityDetailResponse extends Facility {
+  attachmentPreviewUrl?: string | null
+  elevators?: Array<{ id?: number | string | null; name?: string | null }>
+}
+
+function normalizeFacilityDetail(raw: FacilityDetailResponse): FacilityDetail {
+  return {
+    ...normalizeFacility(raw),
+    elevators: Array.isArray(raw.elevators)
+      ? raw.elevators
+          .map((elevator) => {
+            const normalizedId =
+              typeof elevator?.id === 'number'
+                ? elevator.id
+                : typeof elevator?.id === 'string'
+                  ? Number(elevator.id)
+                  : undefined
+
+            return {
+              id: Number.isFinite(normalizedId as number) ? (normalizedId as number) : undefined,
+              name: typeof elevator?.name === 'string' ? elevator.name.trim() : '',
+            }
+          })
+          .filter((elevator) => elevator.name || elevator.id != null)
+      : [],
+    attachmentPreviewUrl: raw.attachmentPreviewUrl || raw.attachmentUrl,
+  }
+}
+
 function toFacilityPayload(payload: FacilityFormPayload): FacilityFormPayload {
   return {
     name: payload.name.trim(),
@@ -200,6 +239,12 @@ export const facilitiesService = {
     return apiClient
       .get<ApiResponse<Facility>>(`/facilities/${id}`)
       .then((response) => normalizeFacility(unwrapResponse(response.data)))
+  },
+
+  getFacilityDetail(id: number): Promise<FacilityDetail> {
+    return apiClient
+      .get<ApiResponse<FacilityDetailResponse>>(`/facilities/${id}/detail`)
+      .then((response) => normalizeFacilityDetail(unwrapResponse(response.data)))
   },
 
   getFacilityAddress(id: number): Promise<FacilityAddress> {

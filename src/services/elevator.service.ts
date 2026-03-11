@@ -9,6 +9,7 @@ export interface Elevator {
   id: number
   kimlikNo: string
   bina: string // Backend'den binaAdi olarak geliyor
+  facilityId?: number
   adres: string
   durak: string // Backend'den asansorNo olarak geliyor
   labelType?: LabelType // Etiket tipi (GREEN, BLUE, YELLOW, RED)
@@ -47,7 +48,8 @@ export interface Elevator {
 
 export interface CreateElevatorRequest {
   kimlikNo: string
-  bina: string
+  facilityId: number
+  bina?: string
   adres: string
   durak: string
   labelType: LabelType
@@ -60,9 +62,76 @@ export interface CreateElevatorRequest {
 
 export interface UpdateElevatorRequest extends Partial<CreateElevatorRequest> {}
 
+export interface FacilityLookupOption {
+  id: number
+  name: string
+}
+
+export interface ElevatorImportRowResult {
+  rowNumber?: number
+  elevatorName?: string
+  facilityName?: string
+  status?: string
+  message?: string
+}
+
+export interface ElevatorImportResult {
+  totalRows: number
+  successRows: number
+  failedRows: number
+  rows: ElevatorImportRowResult[]
+}
+
 // Backend'den gelen formatı frontend formatına çevir
 // YENİ BACKEND FIELD İSİMLERİ (eski field'lar KULLANILMIYOR):
 // identityNumber, buildingName, address, elevatorNumber, floorCount, capacity, speed, inspectionDate
+const toNumeric = (value: unknown): number | undefined => {
+  if (value == null) return undefined
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : undefined
+}
+
+const toStringValue = (value: unknown): string | undefined => {
+  if (value == null) return undefined
+  const normalized = String(value).trim()
+  return normalized.length > 0 ? normalized : undefined
+}
+
+function normalizeElevatorImportResult(raw: any): ElevatorImportResult {
+  const sourceRows = raw?.rows ?? raw?.results ?? raw?.rowErrors ?? raw?.errors ?? []
+  const rows: ElevatorImportRowResult[] = Array.isArray(sourceRows)
+    ? sourceRows.map((row: any) => ({
+        rowNumber: toNumeric(row?.rowNumber ?? row?.rowNum ?? row?.satirNo ?? row?.line ?? row?.index),
+        elevatorName: toStringValue(
+          row?.elevatorName ?? row?.asansorAdi ?? row?.elevator ?? row?.name,
+        ),
+        facilityName: toStringValue(
+          row?.facilityName ?? row?.tesisAdi ?? row?.buildingName ?? row?.bina,
+        ),
+        status: toStringValue(row?.status ?? row?.durum ?? row?.result),
+        message: toStringValue(
+          row?.message ?? row?.reason ?? row?.error ?? row?.hata ?? row?.description,
+        ),
+      }))
+    : []
+
+  const failedByRows = rows.filter((row) => {
+    const status = (row.status || '').toLocaleLowerCase('tr-TR')
+    return status === 'failed' || status === 'error' || status === 'hata' || status === 'başarısız'
+  }).length
+
+  const totalRows = toNumeric(raw?.totalRows ?? raw?.readRows ?? raw?.total) ?? rows.length
+  const successRows = toNumeric(raw?.successRows ?? raw?.successCount ?? raw?.success) ?? Math.max(0, totalRows - failedByRows)
+  const failedRows = toNumeric(raw?.failedRows ?? raw?.failedCount ?? raw?.failed) ?? failedByRows
+
+  return {
+    totalRows,
+    successRows,
+    failedRows,
+    rows,
+  }
+}
+
 function mapElevatorFromBackend(backend: any): Elevator {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -95,11 +164,13 @@ function mapElevatorFromBackend(backend: any): Elevator {
   const labelType: LabelType | undefined = backend.labelType || backend.label_type
     ? (backend.labelType || backend.label_type).toUpperCase() as LabelType
     : undefined
+  const rawFacilityId = backend.facilityId ?? backend.facility_id ?? backend.facility?.id
 
   return {
     id: backend.id,
     kimlikNo: backend.identityNumber || '',
-    bina: backend.buildingName || '',
+    bina: backend.buildingName || backend.binaAdi || backend.facilityName || backend.facility?.name || '',
+    facilityId: rawFacilityId != null && Number.isFinite(Number(rawFacilityId)) ? Number(rawFacilityId) : undefined,
     adres: backend.address || '',
     durak: backend.elevatorNumber || '',
     labelType,
@@ -183,7 +254,7 @@ export const elevatorService = {
     // Ensure dates are in LocalDate format (YYYY-MM-DD)
     const backendRequest: any = {
       identityNumber: elevator.kimlikNo,
-      buildingName: elevator.bina,
+      facilityId: elevator.facilityId,
       address: elevator.adres,
       elevatorNumber: elevator.durak,
       labelType: elevator.labelType,
@@ -192,6 +263,9 @@ export const elevatorService = {
       managerName: elevator.managerName,
       managerTcIdentityNo: elevator.managerTcIdentityNumber,
       managerPhone: elevator.managerPhoneNumber,
+    }
+    if (elevator.bina) {
+      backendRequest.buildingName = elevator.bina
     }
     
     // Debug: Log payload before sending
@@ -205,6 +279,7 @@ export const elevatorService = {
   update: async (id: number, elevator: UpdateElevatorRequest): Promise<Elevator> => {
     const backendRequest: any = {}
     if (elevator.kimlikNo !== undefined) backendRequest.identityNumber = elevator.kimlikNo
+    if (elevator.facilityId !== undefined) backendRequest.facilityId = elevator.facilityId
     if (elevator.bina !== undefined) backendRequest.buildingName = elevator.bina
     if (elevator.adres !== undefined) backendRequest.address = elevator.adres
     if (elevator.durak !== undefined) backendRequest.elevatorNumber = elevator.durak
@@ -231,6 +306,35 @@ export const elevatorService = {
 
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(API_ENDPOINTS.ELEVATORS.BY_ID(id))
+  },
+
+  lookupFacilities: async (query?: string): Promise<FacilityLookupOption[]> => {
+    const { data } = await apiClient.get<ApiResponse<FacilityLookupOption[]>>('/facilities/lookup', {
+      params: { query },
+    })
+    const unwrapped = unwrapArrayResponse(data, true)
+    return (unwrapped || [])
+      .map((item) => ({
+        id: Number(item.id),
+        name: String(item.name || ''),
+      }))
+      .filter((item) => Number.isFinite(item.id) && item.id > 0 && item.name.trim().length > 0)
+  },
+
+  importExcel: async (file: File): Promise<ElevatorImportResult> => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const { data } = await apiClient.post<ApiResponse<any>>('/elevators/import-excel', formData)
+    const payload = unwrapResponse(data, true) ?? data
+    return normalizeElevatorImportResult(payload)
+  },
+
+  downloadImportTemplate: async (): Promise<Blob> => {
+    const response = await apiClient.get('/elevators/import-template', {
+      responseType: 'blob',
+    })
+    return response.data
   },
 
   /**
@@ -273,4 +377,3 @@ export const elevatorService = {
     }
   },
 }
-

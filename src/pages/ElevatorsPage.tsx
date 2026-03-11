@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react'
+import { type ChangeEvent, useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { elevatorService, type Elevator, type LabelType as ElevatorLabelType } from '@/services/elevator.service'
+import {
+  elevatorService,
+  type Elevator,
+  type ElevatorImportResult,
+  type LabelType as ElevatorLabelType,
+} from '@/services/elevator.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TableResponsive } from '@/components/ui/table-responsive'
@@ -25,11 +30,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MaintenanceFormDialog } from '@/components/MaintenanceFormDialog'
 import { ElevatorQRValidationDialog } from '@/components/maintenance/ElevatorQRValidationDialog'
 import { ActionButtons } from '@/components/ui/action-buttons'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function ElevatorsPage() {
+  const { hasAnyRole } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [importResult, setImportResult] = useState<ElevatorImportResult | null>(null)
   const [isMaintenanceDialogOpen, setIsMaintenanceDialogOpen] = useState(false)
   const [selectedElevator, setSelectedElevator] = useState<Elevator | null>(null)
   const [elevatorForMaintenance, setElevatorForMaintenance] = useState<Elevator | null>(null)
@@ -38,9 +47,11 @@ export function ElevatorsPage() {
   const [validatedQRSessionToken, setValidatedQRSessionToken] = useState<string | null>(null)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [elevatorToDelete, setElevatorToDelete] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const canImportElevators = hasAnyRole(['SYSTEM_ADMIN', 'STAFF_ADMIN', 'STAFF_USER'])
 
   const { data: elevators, isLoading } = useQuery({
     queryKey: ['elevators'],
@@ -61,6 +72,50 @@ export function ElevatorsPage() {
       toast({
         title: 'Hata',
         description: 'Asansör silinirken bir hata oluştu.',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const importMutation = useMutation({
+    mutationFn: (file: File) => elevatorService.importExcel(file),
+    onSuccess: (result) => {
+      setImportResult(result)
+      setImportDialogOpen(true)
+      queryClient.invalidateQueries({ queryKey: ['elevators'] })
+      queryClient.invalidateQueries({ queryKey: ['facilities', 'detail'] })
+      toast({
+        title: 'Başarılı',
+        description: 'Excel içe aktarma tamamlandı.',
+        variant: 'success',
+      })
+    },
+    onError: () => {
+      toast({
+        title: 'İçe Aktarma Hatası',
+        description: 'Excel dosyası yüklenirken bir hata oluştu.',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const templateMutation = useMutation({
+    mutationFn: () => elevatorService.downloadImportTemplate(),
+    onSuccess: (blob) => {
+      const fileName = 'asansor-ornek.xlsx'
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    },
+    onError: () => {
+      toast({
+        title: 'Hata',
+        description: 'Örnek Excel indirilemedi.',
         variant: 'destructive',
       })
     },
@@ -140,6 +195,28 @@ export function ElevatorsPage() {
     }
   }
 
+  const triggerImportPicker = () => {
+    if (!canImportElevators || importMutation.isPending) return
+    fileInputRef.current?.click()
+  }
+
+  const handleImportFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null
+    event.target.value = ''
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+      toast({
+        title: 'Geçersiz Dosya',
+        description: 'Lütfen .xlsx uzantılı dosya seçin.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    importMutation.mutate(file)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -147,21 +224,45 @@ export function ElevatorsPage() {
           <h1 className="text-3xl font-bold">Asansörler</h1>
           <p className="text-muted-foreground">Tüm asansörlerin listesi</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setSelectedElevator(null)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Yeni Asansör Ekle
-            </Button>
-          </DialogTrigger>
-          <ElevatorFormDialog
-            elevator={selectedElevator}
-            onClose={() => setIsDialogOpen(false)}
-            onSuccess={() => {
-              setIsDialogOpen(false)
-            }}
-          />
-        </Dialog>
+        <div className="flex flex-wrap items-center gap-2">
+          {canImportElevators ? (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                className="hidden"
+                onChange={handleImportFileChange}
+              />
+              <Button
+                variant="outline"
+                onClick={() => templateMutation.mutate()}
+                disabled={templateMutation.isPending}
+              >
+                {templateMutation.isPending ? 'İndiriliyor...' : 'Örnek Excel'}
+              </Button>
+              <Button variant="outline" onClick={triggerImportPicker} disabled={importMutation.isPending}>
+                {importMutation.isPending ? 'Yükleniyor...' : 'Excel ile Yükle'}
+              </Button>
+            </>
+          ) : null}
+
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setSelectedElevator(null)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Yeni Asansör Ekle
+              </Button>
+            </DialogTrigger>
+            <ElevatorFormDialog
+              elevator={selectedElevator}
+              onClose={() => setIsDialogOpen(false)}
+              onSuccess={() => {
+                setIsDialogOpen(false)
+              }}
+            />
+          </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
@@ -328,6 +429,65 @@ export function ElevatorsPage() {
         variant="destructive"
       />
 
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Excel İçe Aktarma Sonucu</DialogTitle>
+            <DialogDescription>İçe aktarma özetini ve satır detaylarını görüntüleyin.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="rounded-md border p-3">
+                <p className="text-muted-foreground">Toplam satır</p>
+                <p className="text-lg font-semibold">{importResult?.totalRows ?? 0}</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <p className="text-muted-foreground">Başarılı</p>
+                <p className="text-lg font-semibold text-emerald-600">{importResult?.successRows ?? 0}</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <p className="text-muted-foreground">Hatalı</p>
+                <p className="text-lg font-semibold text-destructive">{importResult?.failedRows ?? 0}</p>
+              </div>
+            </div>
+
+            <div className="max-h-80 overflow-auto rounded-md border">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-3 py-2">Satır</th>
+                    <th className="px-3 py-2">Asansör Adı</th>
+                    <th className="px-3 py-2">Tesis Adı</th>
+                    <th className="px-3 py-2">Durum</th>
+                    <th className="px-3 py-2">Mesaj</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(importResult?.rows || []).length === 0 ? (
+                    <tr>
+                      <td className="px-3 py-2 text-muted-foreground" colSpan={5}>
+                        Satır detayı yok.
+                      </td>
+                    </tr>
+                  ) : (
+                    (importResult?.rows || []).map((row, index) => (
+                      <tr key={`${row.rowNumber ?? 'row'}-${index}`} className="border-t">
+                        <td className="px-3 py-2">{row.rowNumber ?? '-'}</td>
+                        <td className="px-3 py-2">{row.elevatorName || '-'}</td>
+                        <td className="px-3 py-2">{row.facilityName || '-'}</td>
+                        <td className="px-3 py-2">{row.status || '-'}</td>
+                        <td className="px-3 py-2">{row.message || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* QR Validation Dialog */}
       {elevatorForQR && (
         <ElevatorQRValidationDialog
@@ -396,7 +556,7 @@ function ElevatorFormDialog({
 }) {
   const [formData, setFormData] = useState({
     kimlikNo: '',
-    bina: '',
+    facilityId: undefined as number | undefined,
     adres: '',
     durak: '',
     labelType: '' as ElevatorLabelType | '',
@@ -409,6 +569,11 @@ function ElevatorFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const facilitiesLookupQuery = useQuery({
+    queryKey: ['facilities', 'lookup', 'elevator-form'],
+    queryFn: () => elevatorService.lookupFacilities(),
+  })
+  const facilityOptions = facilitiesLookupQuery.data || []
 
   // Duration selection removed - End Date must be selected manually
 
@@ -419,7 +584,7 @@ function ElevatorFormDialog({
       
       setFormData({
         kimlikNo: elevator.kimlikNo || '',
-        bina: elevator.bina || '',
+        facilityId: elevator.facilityId ?? undefined,
         adres: elevator.adres || '',
         durak: elevator.durak || '',
         labelType: (elevator.labelType || '') as ElevatorLabelType | '',
@@ -432,7 +597,7 @@ function ElevatorFormDialog({
     } else {
       setFormData({
         kimlikNo: '',
-        bina: '',
+        facilityId: undefined,
         adres: '',
         durak: '',
         labelType: '' as ElevatorLabelType | '',
@@ -445,6 +610,20 @@ function ElevatorFormDialog({
     }
     setErrors({})
   }, [elevator])
+
+  useEffect(() => {
+    if (!elevator || formData.facilityId || facilityOptions.length === 0) return
+    const elevatorBuilding = (elevator.bina || '').trim().toLocaleLowerCase('tr-TR')
+    if (!elevatorBuilding) return
+
+    const matchedFacility = facilityOptions.find(
+      (facility) => facility.name.trim().toLocaleLowerCase('tr-TR') === elevatorBuilding,
+    )
+
+    if (matchedFacility) {
+      setFormData((prev) => ({ ...prev, facilityId: matchedFacility.id }))
+    }
+  }, [elevator, formData.facilityId, facilityOptions])
 
   // Validation functions
   const validateTcIdentity = (tc: string): string => {
@@ -472,6 +651,10 @@ function ElevatorFormDialog({
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
+
+    if (!formData.facilityId) {
+      newErrors.facilityId = 'Tesis (Bina) seçimi zorunlu'
+    }
     
     if (!formData.labelType) {
       newErrors.labelType = 'Etiket tipi seçilmelidir'
@@ -521,10 +704,12 @@ function ElevatorFormDialog({
     mutationFn: (data: typeof formData) => {
       // Normalize phone number (already normalized in handleSubmit, but ensure here too)
       const normalizedPhone = normalizePhone(data.managerPhoneNumber)
+      const selectedFacilityName = facilityOptions.find((facility) => facility.id === data.facilityId)?.name || ''
       
       return elevatorService.create({
         kimlikNo: data.kimlikNo,
-        bina: data.bina,
+        facilityId: Number(data.facilityId),
+        bina: selectedFacilityName,
         adres: data.adres,
         durak: data.durak,
         labelType: data.labelType as ElevatorLabelType,
@@ -537,6 +722,7 @@ function ElevatorFormDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['elevators'] })
+      queryClient.invalidateQueries({ queryKey: ['facilities', 'detail'] })
       toast({
         title: 'Başarılı',
         description: 'Asansör başarıyla eklendi.',
@@ -559,10 +745,12 @@ function ElevatorFormDialog({
       if (!elevator) throw new Error('Elevator ID required')
       // Normalize phone number (already normalized in handleSubmit, but ensure here too)
       const normalizedPhone = normalizePhone(data.managerPhoneNumber)
+      const selectedFacilityName = facilityOptions.find((facility) => facility.id === data.facilityId)?.name || ''
       
       return elevatorService.update(elevator.id, {
         kimlikNo: data.kimlikNo,
-        bina: data.bina,
+        facilityId: Number(data.facilityId),
+        bina: selectedFacilityName,
         adres: data.adres,
         durak: data.durak,
         labelType: data.labelType as ElevatorLabelType,
@@ -575,6 +763,7 @@ function ElevatorFormDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['elevators'] })
+      queryClient.invalidateQueries({ queryKey: ['facilities', 'detail'] })
       toast({
         title: 'Başarılı',
         description: 'Asansör başarıyla güncellendi.',
@@ -641,11 +830,12 @@ function ElevatorFormDialog({
   const isFormValid = () => {
     return (
       formData.kimlikNo &&
-      formData.bina &&
+      formData.facilityId &&
       formData.adres &&
       formData.labelType &&
       formData.labelDate &&
       formData.endDate && // End Date is mandatory
+      !errors.facilityId &&
       !errors.endDate && // No validation errors for end date
       !errors.managerName &&
       !errors.managerTcIdentityNumber &&
@@ -679,14 +869,31 @@ function ElevatorFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bina">Bina *</Label>
-              <Input
-                id="bina"
-                value={formData.bina}
-                onChange={(e) => setFormData({ ...formData, bina: e.target.value })}
-                required
-                className="w-full"
-              />
+              <Label>Tesis (Bina) Seç *</Label>
+              <Select
+                value={formData.facilityId ? String(formData.facilityId) : undefined}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, facilityId: Number(value) })
+                  setErrors({ ...errors, facilityId: '' })
+                }}
+                disabled={facilitiesLookupQuery.isLoading}
+              >
+                <SelectTrigger className={cn('w-full', errors.facilityId && 'border-destructive')}>
+                  <SelectValue
+                    placeholder={facilitiesLookupQuery.isLoading ? 'Tesisler yükleniyor...' : 'Tesis (Bina) seçin'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {facilityOptions.map((facility) => (
+                    <SelectItem key={facility.id} value={String(facility.id)}>
+                      {facility.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.facilityId ? (
+                <p className="text-sm text-destructive">{errors.facilityId}</p>
+              ) : null}
             </div>
           </div>
           <div className="space-y-2">
@@ -872,11 +1079,20 @@ function ElevatorFormDialog({
           <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto min-h-[44px]">
             İptal
           </Button>
+          {facilitiesLookupQuery.isError ? (
+            <p className="w-full text-xs text-destructive sm:w-auto sm:self-center">
+              Tesis listesi yüklenemedi.
+            </p>
+          ) : null}
           <Button 
             type="submit" 
             disabled={createMutation.isPending || updateMutation.isPending || !isFormValid()} 
             className="w-full sm:w-auto min-h-[44px]">
-            {elevator ? 'Güncelle' : 'Ekle'}
+            {createMutation.isPending || updateMutation.isPending
+              ? 'Kaydediliyor...'
+              : elevator
+                ? 'Güncelle'
+                : 'Ekle'}
           </Button>
         </DialogFooter>
       </form>
