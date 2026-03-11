@@ -1,29 +1,19 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { paymentService } from '@/services/payment.service'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import { useToast } from '@/components/ui/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
-import { FileText, FileSpreadsheet, Search } from 'lucide-react'
-import { formatDateShort, formatCurrency } from '@/lib/utils'
+import { Search } from 'lucide-react'
+import { formatCurrency, formatDateShort } from '@/lib/utils'
+import { TableResponsive } from '@/components/ui/table-responsive'
 
 export function PaymentsPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const { toast } = useToast()
 
   const { data: payments, isLoading } = useQuery({
     queryKey: ['payments', dateFrom, dateTo],
@@ -53,6 +43,21 @@ export function PaymentsPage() {
       payment.fisNo?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const getPaymentMethodLabel = (method: string) => {
+    switch (method) {
+      case 'CASH':
+        return 'Nakit'
+      case 'CREDIT_CARD':
+        return 'Kredi Kartı'
+      case 'BANK_TRANSFER':
+        return 'Banka Havalesi'
+      case 'CHECK':
+        return 'Çek'
+      default:
+        return method
+    }
+  }
+
   const getPaymentMethodBadge = (method: string) => {
     switch (method) {
       case 'CASH':
@@ -68,63 +73,73 @@ export function PaymentsPage() {
     }
   }
 
-  const handleExportPdf = async () => {
-    try {
-      const blob = await paymentService.exportPdf({
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-      })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const fileName = `tahsilat-fişleri-${dateFrom || 'tüm'}-${dateTo || 'tarihler'}.pdf`
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      toast({
-        title: 'Başarılı',
-        description: 'PDF başarıyla indirildi.',
-        variant: 'success',
-      })
-    } catch (error) {
-      toast({
-        title: 'Hata',
-        description: 'PDF indirilemedi.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const handleExportExcel = async () => {
-    try {
-      const blob = await paymentService.exportExcel({
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-      })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const fileName = `tahsilat-fişleri-${dateFrom || 'tüm'}-${dateTo || 'tarihler'}.xlsx`
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      toast({
-        title: 'Başarılı',
-        description: 'Excel dosyası başarıyla indirildi.',
-        variant: 'success',
-      })
-    } catch (error) {
-      toast({
-        title: 'Hata',
-        description: 'Excel dosyası indirilemedi.',
-        variant: 'destructive',
-      })
-    }
-  }
+  const paymentColumns = [
+    {
+      key: 'fisNo',
+      header: 'Fiş No',
+      mobileLabel: 'Fiş No',
+      mobilePriority: 10,
+      render: (payment: any) => payment.fisNo || `#${payment.id}`,
+      exportValue: (payment: any) => payment.fisNo || `#${payment.id}`,
+    },
+    {
+      key: 'elevator',
+      header: 'Asansör',
+      mobileLabel: 'Asansör',
+      mobilePriority: 9,
+      render: (payment: any) => payment.maintenance?.elevator?.kimlikNo || '-',
+      exportValue: (payment: any) => payment.maintenance?.elevator?.kimlikNo || '-',
+    },
+    {
+      key: 'building',
+      header: 'Bina',
+      mobileLabel: 'Bina',
+      mobilePriority: 8,
+      render: (payment: any) => payment.maintenance?.elevator?.bina || payment.maintenance?.elevator?.binaAdi || '-',
+      exportValue: (payment: any) => payment.maintenance?.elevator?.bina || payment.maintenance?.elevator?.binaAdi || '-',
+    },
+    {
+      key: 'description',
+      header: 'Bakım Açıklama',
+      mobileLabel: 'Bakım Açıklama',
+      mobilePriority: 5,
+      render: (payment: any) => payment.maintenance?.aciklama || '-',
+      exportValue: (payment: any) => payment.maintenance?.aciklama || '-',
+    },
+    {
+      key: 'date',
+      header: 'Ödeme Tarihi',
+      mobileLabel: 'Ödeme Tarihi',
+      mobilePriority: 7,
+      render: (payment: any) => (payment.odemeTarihi ? formatDateShort(payment.odemeTarihi) : '-'),
+      exportValue: (payment: any) => (payment.odemeTarihi ? formatDateShort(payment.odemeTarihi) : '-'),
+    },
+    {
+      key: 'amount',
+      header: 'Tutar',
+      mobileLabel: 'Tutar',
+      mobilePriority: 6,
+      render: (payment: any) => <span className="font-medium">{formatCurrency(payment.tutar || 0)}</span>,
+      exportValue: (payment: any) => `${payment.tutar || 0}`,
+    },
+    {
+      key: 'method',
+      header: 'Ödeme Yöntemi',
+      mobileLabel: 'Ödeme Yöntemi',
+      mobilePriority: 6,
+      render: (payment: any) => getPaymentMethodBadge(payment.odemeYontemi || 'CASH'),
+      exportValue: (payment: any) => getPaymentMethodLabel(payment.odemeYontemi || 'CASH'),
+    },
+    {
+      key: 'notes',
+      header: 'Açıklama',
+      headerClassName: 'text-left',
+      mobileLabel: 'Açıklama',
+      mobilePriority: 4,
+      render: (payment: any) => payment.aciklama || '-',
+      exportValue: (payment: any) => payment.aciklama || '-',
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -132,16 +147,6 @@ export function PaymentsPage() {
         <div>
           <h1 className="text-3xl font-bold">Tahsilat Fişleri</h1>
           <p className="text-muted-foreground">Ödeme kayıtları ve fişler</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportPdf}>
-            <FileText className="mr-2 h-4 w-4" />
-            PDF İndir
-          </Button>
-          <Button variant="outline" onClick={handleExportExcel}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Excel İndir
-          </Button>
         </div>
       </div>
 
@@ -226,52 +231,15 @@ export function PaymentsPage() {
           ))}
         </div>
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fiş No</TableHead>
-                <TableHead>Asansör</TableHead>
-                <TableHead>Bina</TableHead>
-                <TableHead>Bakım Açıklama</TableHead>
-                <TableHead>Ödeme Tarihi</TableHead>
-                <TableHead>Tutar</TableHead>
-                <TableHead>Ödeme Yöntemi</TableHead>
-                <TableHead>Açıklama</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPayments && filteredPayments.length > 0 ? (
-                filteredPayments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell className="font-medium">{payment.fisNo || `#${payment.id}`}</TableCell>
-                    <TableCell>
-                      {payment.maintenance?.elevator?.kimlikNo || '-'}
-                    </TableCell>
-                    <TableCell>{payment.maintenance?.elevator?.bina || payment.maintenance?.elevator?.binaAdi || '-'}</TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {payment.maintenance?.aciklama || '-'}
-                    </TableCell>
-                    <TableCell>{payment.odemeTarihi ? formatDateShort(payment.odemeTarihi) : '-'}</TableCell>
-                    <TableCell className="font-medium">{formatCurrency(payment.tutar || 0)}</TableCell>
-                    <TableCell>{getPaymentMethodBadge(payment.odemeYontemi || 'CASH')}</TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {payment.aciklama || '-'}
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    Fiş bulunamadı
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <TableResponsive
+          data={filteredPayments}
+          columns={paymentColumns}
+          keyExtractor={(payment) => payment.id}
+          emptyMessage="Fiş bulunamadı"
+          tableTitle="Tahsilat Fişleri"
+          pageSize={10}
+        />
       )}
     </div>
   )
 }
-

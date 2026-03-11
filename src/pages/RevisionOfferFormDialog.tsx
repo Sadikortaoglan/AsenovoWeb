@@ -6,6 +6,7 @@ import { partService } from '@/services/part.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { TableResponsive } from '@/components/ui/table-responsive'
 import {
   DialogContent,
   DialogDescription,
@@ -18,14 +19,6 @@ import { useToast } from '@/components/ui/use-toast'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
 interface RevisionOfferFormDialogProps {
   offer: RevisionOffer | null
@@ -90,6 +83,103 @@ export function RevisionOfferFormDialog({ offer, onClose, onSuccess }: RevisionO
   const calculateTotal = () => {
     return calculatePartsTotal() + formData.labor
   }
+  const partRows = formData.parts.map((part, rowIndex) => ({ ...part, rowIndex }))
+  const partColumns = [
+    {
+      key: 'part',
+      header: 'Parça',
+      mobileLabel: 'Parça',
+      mobilePriority: 10,
+      render: (row: any) => (
+        <Select
+          value={row.partId}
+          onValueChange={(value) => updatePart(row.rowIndex, 'partId', value)}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Parça seçin" />
+          </SelectTrigger>
+          <SelectContent>
+            {partsArray.map((p) => (
+              <SelectItem key={p.id} value={String(p.id)}>
+                {p.name} ({formatCurrency(p.unitPrice)})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+      exportValue: (row: any) => {
+        const selectedPart = partsArray.find((p) => p.id === Number(row.partId))
+        return selectedPart?.name || '-'
+      },
+    },
+    {
+      key: 'quantity',
+      header: 'Miktar',
+      mobileLabel: 'Miktar',
+      mobilePriority: 8,
+      render: (row: any) => (
+        <Input
+          type="number"
+          min="1"
+          value={row.quantity}
+          onChange={(e) => updatePart(row.rowIndex, 'quantity', Number(e.target.value))}
+          className="w-20"
+        />
+      ),
+      exportValue: (row: any) => String(row.quantity || 0),
+    },
+    {
+      key: 'unitPrice',
+      header: 'Birim Fiyat',
+      mobileLabel: 'Birim Fiyat',
+      mobilePriority: 7,
+      render: (row: any) => (
+        <Input
+          type="number"
+          step="0.01"
+          value={row.unitPrice}
+          onChange={(e) => updatePart(row.rowIndex, 'unitPrice', Number(e.target.value))}
+          className="w-32"
+        />
+      ),
+      exportValue: (row: any) => String(row.unitPrice || 0),
+    },
+    {
+      key: 'total',
+      header: 'Toplam',
+      mobileLabel: 'Toplam',
+      mobilePriority: 6,
+      render: (row: any) => {
+        const selectedPart = partsArray.find((p) => p.id === Number(row.partId))
+        const unitPrice = row.unitPrice || selectedPart?.unitPrice || 0
+        return formatCurrency(row.quantity * unitPrice)
+      },
+      exportValue: (row: any) => {
+        const selectedPart = partsArray.find((p) => p.id === Number(row.partId))
+        const unitPrice = row.unitPrice || selectedPart?.unitPrice || 0
+        return String(row.quantity * unitPrice)
+      },
+    },
+    {
+      key: 'actions',
+      header: '',
+      mobileLabel: '',
+      mobilePriority: 5,
+      hideOnMobile: false,
+      render: (row: any) => (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => removePart(row.rowIndex)}
+          className="h-8 w-8"
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      ),
+      exportable: false,
+    },
+  ]
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => {
@@ -293,75 +383,13 @@ export function RevisionOfferFormDialog({ offer, onClose, onSuccess }: RevisionO
             </div>
             {formData.parts.length > 0 ? (
               <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Parça</TableHead>
-                      <TableHead>Miktar</TableHead>
-                      <TableHead>Birim Fiyat</TableHead>
-                      <TableHead>Toplam</TableHead>
-                      <TableHead className="w-12"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {formData.parts.map((part, index) => {
-                      const selectedPart = partsArray.find((p) => p.id === Number(part.partId))
-                      const unitPrice = part.unitPrice || selectedPart?.unitPrice || 0
-                      const total = part.quantity * unitPrice
-                      return (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <Select
-                              value={part.partId}
-                              onValueChange={(value) => updatePart(index, 'partId', value)}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Parça seçin" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {partsArray.map((p) => (
-                                  <SelectItem key={p.id} value={String(p.id)}>
-                                    {p.name} ({formatCurrency(p.unitPrice)})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={part.quantity}
-                              onChange={(e) => updatePart(index, 'quantity', Number(e.target.value))}
-                              className="w-20"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={unitPrice}
-                              onChange={(e) => updatePart(index, 'unitPrice', Number(e.target.value))}
-                              className="w-32"
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{formatCurrency(total)}</TableCell>
-                          <TableCell>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removePart(index)}
-                              className="h-8 w-8"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+                <TableResponsive
+                  data={partRows}
+                  columns={partColumns}
+                  keyExtractor={(row: any) => row.rowIndex}
+                  tableTitle="Revizyon Teklifi Kalemleri"
+                  pageSize={10}
+                />
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">

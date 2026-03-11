@@ -7,14 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TableResponsive } from '@/components/ui/table-responsive'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -433,6 +425,109 @@ function OfferFormDialog({
   const afterDiscount = subtotal - formData.discountAmount
   const vatAmount = afterDiscount * (formData.vatRate / 100)
   const totalAmount = afterDiscount + vatAmount
+  const formItemRows = formData.items.map((item, rowIndex) => ({ ...item, rowIndex }))
+
+  const formItemColumns = [
+    {
+      key: 'part',
+      header: 'Parça',
+      mobileLabel: 'Parça',
+      mobilePriority: 10,
+      render: (item: any) => {
+        return (
+          <Select
+            value={item.partId.toString()}
+            onValueChange={(value) => {
+              updatePart(item.rowIndex, 'partId', value)
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Parça seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              {partsArray.map((p) => (
+                <SelectItem key={p.id} value={p.id.toString()}>
+                  {p.name} ({formatCurrency(p.unitPrice)})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )
+      },
+      exportValue: (item: any) => {
+        const part = partsArray.find((p) => p.id === item.partId)
+        return part?.name || '-'
+      },
+    },
+    {
+      key: 'quantity',
+      header: 'Miktar',
+      mobileLabel: 'Miktar',
+      mobilePriority: 8,
+      render: (item: any) => (
+        <Input
+          type="number"
+          min="1"
+          value={item.quantity}
+          onChange={(e) => updatePart(item.rowIndex, 'quantity', Number(e.target.value))}
+          className="w-20"
+        />
+      ),
+      exportValue: (item: any) => String(item.quantity || 0),
+    },
+    {
+      key: 'unitPrice',
+      header: 'Birim Fiyat',
+      mobileLabel: 'Birim Fiyat',
+      mobilePriority: 7,
+      render: (item: any) => (
+        <Input
+          type="number"
+          step="0.01"
+          value={item.unitPrice}
+          onChange={(e) => updatePart(item.rowIndex, 'unitPrice', Number(e.target.value))}
+          className="w-32"
+        />
+      ),
+      exportValue: (item: any) => String(item.unitPrice || 0),
+    },
+    {
+      key: 'total',
+      header: 'Toplam',
+      mobileLabel: 'Toplam',
+      mobilePriority: 6,
+      render: (item: any) => formatCurrency(item.quantity * item.unitPrice),
+      exportValue: (item: any) => String(item.quantity * item.unitPrice),
+    },
+    {
+      key: 'actions',
+      header: 'İşlem',
+      mobileLabel: '',
+      mobilePriority: 5,
+      hideOnMobile: false,
+      render: (item: any) => (
+        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(item.rowIndex)}>
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      ),
+      exportable: false,
+    },
+  ]
+
+  const updatePart = (index: number, field: string, value: any) => {
+    const updatedParts = [...formData.items]
+    updatedParts[index] = { ...updatedParts[index], [field]: value }
+    
+    // If partId changed, update unitPrice from selected part
+    if (field === 'partId' && value) {
+      const selectedPart = partsArray.find((p) => p.id === Number(value))
+      if (selectedPart) {
+        updatedParts[index].unitPrice = selectedPart.unitPrice
+      }
+    }
+    
+    setFormData({ ...formData, items: updatedParts })
+  }
 
   return (
     <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
@@ -555,40 +650,14 @@ function OfferFormDialog({
 
             {formData.items.length > 0 && (
               <div className="mt-4 rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Parça</TableHead>
-                      <TableHead>Miktar</TableHead>
-                      <TableHead>Birim Fiyat</TableHead>
-                      <TableHead>Toplam</TableHead>
-                      <TableHead className="text-right">İşlem</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {formData.items.map((item, index) => {
-                      const part = partsArray.find((p) => p.id === item.partId)
-                      return (
-                        <TableRow key={index}>
-                          <TableCell>{part?.name || '-'}</TableCell>
-                          <TableCell>{item.quantity}</TableCell>
-                          <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                          <TableCell>{formatCurrency(item.quantity * item.unitPrice)}</TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveItem(index)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+                <TableResponsive
+                  data={formItemRows}
+                  columns={formItemColumns}
+                  keyExtractor={(row: any) => row.rowIndex}
+                  emptyMessage="Henüz parça eklenmedi. Parça eklemek için yukarıdaki butona tıklayın."
+                  tableTitle="Teklif Kalemleri"
+                  pageSize={10}
+                />
                 <div className="p-4 border-t space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Ara Toplam:</span>
@@ -634,6 +703,41 @@ function OfferDetailDialog({ offer }: { offer: Offer }) {
     EXPIRED: { label: 'Süresi Doldu', variant: 'destructive' },
   }
   const status = statusMap[offer.status] || { label: offer.status, variant: 'default' as const }
+  const offerItemRows = offer.items.map((item, rowIndex) => ({ ...item, rowIndex }))
+  const offerItemColumns = [
+    {
+      key: 'part',
+      header: 'Parça',
+      mobileLabel: 'Parça',
+      mobilePriority: 10,
+      render: (item: any) => item.part?.name || '-',
+      exportValue: (item: any) => item.part?.name || '-',
+    },
+    {
+      key: 'quantity',
+      header: 'Miktar',
+      mobileLabel: 'Miktar',
+      mobilePriority: 8,
+      render: (item: any) => item.quantity,
+      exportValue: (item: any) => String(item.quantity || 0),
+    },
+    {
+      key: 'unitPrice',
+      header: 'Birim Fiyat',
+      mobileLabel: 'Birim Fiyat',
+      mobilePriority: 7,
+      render: (item: any) => formatCurrency(item.unitPrice),
+      exportValue: (item: any) => String(item.unitPrice || 0),
+    },
+    {
+      key: 'total',
+      header: 'Toplam',
+      mobileLabel: 'Toplam',
+      mobilePriority: 6,
+      render: (item: any) => formatCurrency(item.total),
+      exportValue: (item: any) => String(item.total || 0),
+    },
+  ]
 
   return (
     <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
@@ -680,26 +784,13 @@ function OfferDetailDialog({ offer }: { offer: Offer }) {
         <div className="border-t pt-4">
           <Label className="text-lg font-semibold">Kalemler</Label>
           <div className="mt-2 rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Parça</TableHead>
-                  <TableHead>Miktar</TableHead>
-                  <TableHead>Birim Fiyat</TableHead>
-                  <TableHead>Toplam</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {offer.items.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.part?.name || '-'}</TableCell>
-                    <TableCell>{item.quantity}</TableCell>
-                    <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                    <TableCell>{formatCurrency(item.total)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <TableResponsive
+              data={offerItemRows}
+              columns={offerItemColumns}
+              keyExtractor={(row: any) => row.rowIndex}
+              tableTitle="Teklif Kalemleri"
+              pageSize={10}
+            />
             <div className="p-4 border-t space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Ara Toplam:</span>
@@ -726,4 +817,3 @@ function OfferDetailDialog({ offer }: { offer: Offer }) {
     </DialogContent>
   )
 }
-

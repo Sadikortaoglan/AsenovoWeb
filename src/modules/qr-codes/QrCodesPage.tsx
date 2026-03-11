@@ -4,11 +4,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 import { useToast } from '@/components/ui/use-toast'
+import { PaginatedTable } from '@/modules/shared/components/PaginatedTable'
 import { clearQrCodesListCache, type QrCodeItem } from './qr-codes.service'
 import { useQrCodes } from './useQrCodes'
 import { QrCodeItemCard } from './components/QrCodeItemCard'
@@ -220,6 +220,52 @@ export function QrCodesPage() {
     }
   }
 
+  const qrColumns = [
+    {
+      key: 'qrImage',
+      header: 'QR Image',
+      render: (item: QrCodeItem) =>
+        item.hasQr ? (
+          <QrCodePreviewImage src={item.qrImageUrl} alt={`${item.elevatorName} QR`} className="qr-codes__image" />
+        ) : (
+          <div className="qr-codes__image qr-codes__image--empty" aria-label={`${item.elevatorName} QR yok`}>
+            QR yok
+          </div>
+        ),
+    },
+    {
+      key: 'elevatorName',
+      header: 'Elevator Name',
+      render: (item: QrCodeItem) => item.elevatorName,
+    },
+    {
+      key: 'buildingName',
+      header: 'Building Name',
+      render: (item: QrCodeItem) => item.buildingName,
+    },
+    {
+      key: 'customerName',
+      header: 'Customer Name',
+      render: (item: QrCodeItem) => item.customerName,
+    },
+    {
+      key: 'actions',
+      header: 'Action',
+      render: (item: QrCodeItem) => (
+        <div className="qr-codes-actions">
+          <Button
+            type="button"
+            variant="outline"
+            className="qr-codes__button qr-codes__button--muted"
+            onClick={() => handlePrint(item)}
+          >
+            Yazdır
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
   const handleOpenByQr = async (scannedCode?: string) => {
     const finalCode = (scannedCode ?? scanCode).trim()
     if (!finalCode) {
@@ -309,50 +355,13 @@ export function QrCodesPage() {
           {!isLoading && rows.length === 0 ? <p className="qr-codes-empty">Kayıt bulunamadı.</p> : null}
 
           {!isLoading && rows.length > 0 && !isMobile ? (
-            <div className="qr-codes-table-wrap">
-              <Table className="qr-codes-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>QR Image</TableHead>
-                    <TableHead>Elevator Name</TableHead>
-                    <TableHead>Building Name</TableHead>
-                    <TableHead>Customer Name</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((item) => {
-                    return (
-                      <TableRow key={String(item.id)}>
-                        <TableCell>
-                          {item.hasQr ? (
-                            <QrCodePreviewImage
-                              src={item.qrImageUrl}
-                              alt={`${item.elevatorName} QR`}
-                              className="qr-codes__image"
-                            />
-                          ) : (
-                            <div className="qr-codes__image qr-codes__image--empty" aria-label={`${item.elevatorName} QR yok`}>
-                              QR yok
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>{item.elevatorName}</TableCell>
-                        <TableCell>{item.buildingName}</TableCell>
-                        <TableCell>{item.customerName}</TableCell>
-                        <TableCell>
-                          <div className="qr-codes-actions">
-                            <Button type="button" variant="outline" className="qr-codes__button qr-codes__button--muted" onClick={() => handlePrint(item)}>
-                              Yazdır
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <PaginatedTable
+              pageData={data}
+              loading={isLoading || isFetching}
+              onPageChange={setPage}
+              tableTitle="QR Kodları"
+              columns={qrColumns}
+            />
           ) : null}
 
           {!isLoading && rows.length > 0 && isMobile ? (
@@ -367,31 +376,33 @@ export function QrCodesPage() {
             </div>
           ) : null}
 
-          <div className="qr-codes-pagination">
-            <Button
-              type="button"
-              variant="outline"
-              className="qr-codes-pagination__button"
-              onClick={() => setPage(Math.max(page - 1, 0))}
-              disabled={page <= 0 || isLoading}
-            >
-              Önceki
-            </Button>
+          {isMobile ? (
+            <div className="qr-codes-pagination">
+              <Button
+                type="button"
+                variant="outline"
+                className="qr-codes-pagination__button"
+                onClick={() => setPage(Math.max(page - 1, 0))}
+                disabled={page <= 0 || isLoading}
+              >
+                Önceki
+              </Button>
 
-            <span className="qr-codes-pagination__text">
-              Sayfa {totalPages > 0 ? currentPage : 0} / {totalPages}
-            </span>
+              <span className="qr-codes-pagination__text">
+                Sayfa {totalPages > 0 ? currentPage : 0} / {totalPages}
+              </span>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="qr-codes-pagination__button"
-              onClick={() => setPage(page + 1)}
-              disabled={totalPages === 0 || page + 1 >= totalPages || isLoading}
-            >
-              Sonraki
-            </Button>
-          </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="qr-codes-pagination__button"
+                onClick={() => setPage(page + 1)}
+                disabled={totalPages === 0 || page + 1 >= totalPages || isLoading}
+              >
+                Sonraki
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

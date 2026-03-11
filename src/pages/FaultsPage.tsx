@@ -4,14 +4,6 @@ import { faultService, type Fault } from '@/services/fault.service'
 import { elevatorService } from '@/services/elevator.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
@@ -36,6 +28,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Search, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { formatDateShort, cn } from '@/lib/utils'
+import { TableResponsive } from '@/components/ui/table-responsive'
 
 export function FaultsPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -74,6 +67,109 @@ export function FaultsPage() {
   const completedCount = completedFaultsArray.length
   const totalCount = openCount + completedCount
   const avgDays = totalCount > 0 ? (openCount * 2.3).toFixed(1) : '0.0'
+
+  const getFaultStatusBadge = (status: string) => {
+    switch (status) {
+      case 'OPEN':
+        return <Badge variant="open" className="flex items-center gap-1.5">
+          <AlertCircle className="h-3.5 w-3.5" />
+          Açık
+        </Badge>
+      case 'IN_PROGRESS':
+        return <Badge variant="pending" className="flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5" />
+          Devam Ediyor
+        </Badge>
+      case 'COMPLETED':
+        return <Badge variant="completed" className="flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Tamamlandı
+        </Badge>
+      default:
+        return <Badge variant="default">{status}</Badge>
+    }
+  }
+
+  const getFaultStatusLabel = (status: string) => {
+    switch (status) {
+      case 'OPEN':
+        return 'Açık'
+      case 'IN_PROGRESS':
+        return 'Devam Ediyor'
+      case 'COMPLETED':
+        return 'Tamamlandı'
+      default:
+        return status
+    }
+  }
+
+  const faultColumns = [
+    {
+      key: 'elevator',
+      header: 'Asansör',
+      mobileLabel: 'Asansör',
+      mobilePriority: 10,
+      render: (fault: Fault) => fault.elevatorName || fault.elevator?.kimlikNo || 'Not Assigned',
+      exportValue: (fault: Fault) => fault.elevatorName || fault.elevator?.kimlikNo || 'Not Assigned',
+    },
+    {
+      key: 'building',
+      header: 'Bina',
+      mobileLabel: 'Bina',
+      mobilePriority: 9,
+      render: (fault: Fault) => fault.buildingName || fault.elevator?.bina || fault.elevator?.binaAdi || 'Not Assigned',
+      exportValue: (fault: Fault) => fault.buildingName || fault.elevator?.bina || fault.elevator?.binaAdi || 'Not Assigned',
+    },
+    {
+      key: 'person',
+      header: 'Görüşülen Kişi',
+      mobileLabel: 'Kişi',
+      mobilePriority: 8,
+      render: (fault: Fault) => fault.gorusulenKisi || '-',
+      exportValue: (fault: Fault) => fault.gorusulenKisi || '',
+    },
+    {
+      key: 'subject',
+      header: 'Arıza Konusu',
+      mobileLabel: 'Arıza Konusu',
+      mobilePriority: 7,
+      render: (fault: Fault) => fault.arizaKonusu,
+      exportValue: (fault: Fault) => fault.arizaKonusu || '',
+    },
+    {
+      key: 'message',
+      header: 'Mesaj',
+      mobileLabel: 'Mesaj',
+      mobilePriority: 6,
+      render: (fault: Fault) => <span className="max-w-xs truncate block">{fault.mesaj || '-'}</span>,
+      exportValue: (fault: Fault) => fault.mesaj || '',
+    },
+    {
+      key: 'status',
+      header: 'Durum',
+      mobileLabel: 'Durum',
+      mobilePriority: 5,
+      render: (fault: Fault) => getFaultStatusBadge(fault.durum),
+      exportValue: (fault: Fault) => getFaultStatusLabel(fault.durum),
+    },
+    {
+      key: 'date',
+      header: 'Tarih',
+      mobileLabel: 'Tarih',
+      mobilePriority: 4,
+      render: (fault: Fault) => formatDateShort(fault.olusturmaTarihi),
+      exportValue: (fault: Fault) => formatDateShort(fault.olusturmaTarihi),
+    },
+    {
+      key: 'actions',
+      header: 'İşlemler',
+      mobileLabel: 'İşlemler',
+      mobilePriority: 3,
+      render: (fault: Fault) => <FaultStatusActions fault={fault} />,
+      exportable: false,
+      hideOnMobile: false,
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -156,93 +252,50 @@ export function FaultsPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="open">
-          {openLoading ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Asansör</TableHead>
-                    <TableHead>Bina</TableHead>
-                    <TableHead>Görüşülen Kişi</TableHead>
-                    <TableHead>Arıza Konusu</TableHead>
-                    <TableHead>Mesaj</TableHead>
-                    <TableHead>Durum</TableHead>
-                    <TableHead>Tarih</TableHead>
-                    <TableHead className="text-right">İşlemler</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOpenFaults && filteredOpenFaults.length > 0 ? (
-                    filteredOpenFaults.map((fault) => (
-                      <FaultTableRow key={fault.id} fault={fault} />
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
-                        Açık arıza bulunamadı
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </TabsContent>
+            <TabsContent value="open">
+              {openLoading ? (
+                <div className="space-y-2">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <TableResponsive
+                  data={filteredOpenFaults}
+                  columns={faultColumns}
+                  keyExtractor={(fault) => fault.id}
+                  emptyMessage="Açık arıza bulunamadı"
+                  tableTitle="Açık Arızalar"
+                  pageSize={10}
+                />
+              )}
+            </TabsContent>
 
-        <TabsContent value="completed">
-          {completedLoading ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Asansör</TableHead>
-                    <TableHead>Bina</TableHead>
-                    <TableHead>Görüşülen Kişi</TableHead>
-                    <TableHead>Arıza Konusu</TableHead>
-                    <TableHead>Mesaj</TableHead>
-                    <TableHead>Durum</TableHead>
-                    <TableHead>Tarih</TableHead>
-                    <TableHead className="text-right">İşlemler</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCompletedFaults && filteredCompletedFaults.length > 0 ? (
-                    filteredCompletedFaults.map((fault) => (
-                      <FaultTableRow key={fault.id} fault={fault} />
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
-                        Tamamlanan arıza bulunamadı
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
+            <TabsContent value="completed">
+              {completedLoading ? (
+                <div className="space-y-2">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <TableResponsive
+                  data={filteredCompletedFaults}
+                  columns={faultColumns}
+                  keyExtractor={(fault) => fault.id}
+                  emptyMessage="Tamamlanan arıza bulunamadı"
+                  tableTitle="Tamamlanan Arızalar"
+                  pageSize={10}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      )
 }
 
-function FaultTableRow({ fault }: { fault: Fault }) {
+function FaultStatusActions({ fault }: { fault: Fault }) {
   const [confirmStatusUpdateOpen, setConfirmStatusUpdateOpen] = useState(false)
-  const [newStatus, setNewStatus] = useState<'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | null>(null)
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
@@ -256,7 +309,7 @@ function FaultTableRow({ fault }: { fault: Fault }) {
         description: 'Arıza durumu güncellendi.',
         variant: 'success',
       })
-      setNewStatus(null)
+      setConfirmStatusUpdateOpen(false)
     },
     onError: () => {
       toast({
@@ -264,102 +317,60 @@ function FaultTableRow({ fault }: { fault: Fault }) {
         description: 'Durum güncellenirken bir hata oluştu.',
         variant: 'destructive',
       })
-      setNewStatus(null)
     },
   })
 
-  const handleStatusChange = (value: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED') => {
-    setNewStatus(value)
+  const handleStatusChange = () => {
     setConfirmStatusUpdateOpen(true)
   }
 
   const confirmStatusUpdate = () => {
-    if (newStatus) {
-      updateStatusMutation.mutate(newStatus)
+    if (fault.durum !== 'COMPLETED') {
+      updateStatusMutation.mutate('COMPLETED')
       setConfirmStatusUpdateOpen(false)
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return <Badge variant="open" className="flex items-center gap-1.5">
-          <AlertCircle className="h-3.5 w-3.5" />
-          Açık
-        </Badge>
-      case 'IN_PROGRESS':
-        return <Badge variant="pending" className="flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5" />
-          Devam Ediyor
-        </Badge>
-      case 'COMPLETED':
-        return <Badge variant="completed" className="flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          Tamamlandı
-        </Badge>
-      default:
-        return <Badge variant="default">{status}</Badge>
-    }
-  }
-
-  const elevatorDisplay = fault.elevatorName || fault.elevator?.kimlikNo || 'Not Assigned'
-  const buildingDisplay = fault.buildingName || fault.elevator?.bina || fault.elevator?.binaAdi || 'Not Assigned'
-  const elevatorTooltip = fault.elevatorName || fault.elevator?.kimlikNo 
-    ? `${fault.elevatorName || fault.elevator?.kimlikNo} - ${buildingDisplay}`
-    : 'Asansör bilgisi atanmamış'
-
   return (
-    <TableRow>
-      <TableCell className="font-medium" title={elevatorTooltip}>
-        {elevatorDisplay}
-      </TableCell>
-      <TableCell title={buildingDisplay}>{buildingDisplay}</TableCell>
-      <TableCell>{fault.gorusulenKisi}</TableCell>
-      <TableCell>{fault.arizaKonusu}</TableCell>
-      <TableCell className="max-w-xs truncate">{fault.mesaj}</TableCell>
-      <TableCell>{getStatusBadge(fault.durum)}</TableCell>
-      <TableCell>{formatDateShort(fault.olusturmaTarihi)}</TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-2">
-          {fault.durum !== 'COMPLETED' && (
-            <>
-              <button
-                onClick={() => handleStatusChange('COMPLETED')}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all',
-                  fault.durum === 'OPEN' 
-                    ? 'border-[#EF4444] bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA]'
-                    : 'border-[#F59E0B] bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A]'
-                )}
-              >
-                {fault.durum === 'OPEN' ? (
-                  <>
-                    <AlertCircle className="h-3.5 w-3.5" />
-                    Açık
-                  </>
-                ) : (
-                  <>
-                    <Clock className="h-3.5 w-3.5" />
-                    Devam Ediyor
-                  </>
-                )}
-                <span className="ml-1">▼</span>
-              </button>
-              <ConfirmDialog
-                open={confirmStatusUpdateOpen}
-                onOpenChange={setConfirmStatusUpdateOpen}
-                title="Arıza Durumu Güncelle"
-                message="Arıza tamamlandı olarak işaretlensin mi?"
-                confirmText="Evet, Tamamlandı"
-                cancelText="İptal"
-                onConfirm={confirmStatusUpdate}
-                variant="default"
-              />
-            </>
-          )}
-        </div>
-      </TableCell>
-    </TableRow>
+    <div className="flex items-center justify-end gap-2">
+      {fault.durum !== 'COMPLETED' && (
+        <>
+          <button
+            type="button"
+            onClick={() => handleStatusChange()}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all',
+              fault.durum === 'OPEN'
+                ? 'border-[#EF4444] bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA]'
+                : 'border-[#F59E0B] bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A]'
+            )}
+          >
+            {fault.durum === 'OPEN' ? (
+              <>
+                <AlertCircle className="h-3.5 w-3.5" />
+                Açık
+              </>
+            ) : (
+              <>
+                <Clock className="h-3.5 w-3.5" />
+                Devam Ediyor
+              </>
+            )}
+            <span className="ml-1">▼</span>
+          </button>
+          <ConfirmDialog
+            open={confirmStatusUpdateOpen}
+            onOpenChange={setConfirmStatusUpdateOpen}
+            title="Arıza Durumu Güncelle"
+            message="Arıza tamamlandı olarak işaretlensin mi?"
+            confirmText="Evet, Tamamlandı"
+            cancelText="İptal"
+            onConfirm={confirmStatusUpdate}
+            variant="default"
+          />
+        </>
+      )}
+    </div>
   )
 }
 
@@ -521,4 +532,3 @@ function FaultFormDialog({
     </DialogContent>
   )
 }
-

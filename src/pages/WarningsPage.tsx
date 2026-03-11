@@ -5,20 +5,13 @@ import { warningService, type GroupedWarning } from '@/services/warning.service'
 import { elevatorService } from '@/services/elevator.service'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, Clock, Search, ChevronDown, ChevronRight, Eye } from 'lucide-react'
 import { formatDateShort } from '@/lib/utils'
+import { TableResponsive } from '@/components/ui/table-responsive'
 
 export function WarningsPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -87,6 +80,58 @@ export function WarningsPage() {
   const filteredWarnings = filterGroupedWarnings(groupedWarningsArray)
   const expiredWarnings = filteredWarnings.filter((w) => w.status === 'EXPIRED')
   const warningWarnings = filteredWarnings.filter((w) => w.status === 'WARNING')
+
+  const getWarningColumns = (status: 'EXPIRED' | 'WARNING') => [
+    {
+      key: 'identityNo',
+      header: 'Kimlik No',
+      mobileLabel: 'Kimlik No',
+      mobilePriority: 10,
+      render: (row: any) => <span className="font-medium">{row.identityNo}</span>,
+      exportValue: (row: any) => row.identityNo || '',
+    },
+    {
+      key: 'maintenanceEndDate',
+      header: 'Bitiş Tarihi',
+      mobileLabel: 'Bitiş Tarihi',
+      mobilePriority: 9,
+      render: (row: any) => (row.maintenanceEndDate ? formatDateShort(row.maintenanceEndDate) : '-'),
+      exportValue: (row: any) => (row.maintenanceEndDate ? formatDateShort(row.maintenanceEndDate) : '-'),
+    },
+    {
+      key: 'status',
+      header: 'Durum',
+      mobileLabel: 'Durum',
+      mobilePriority: 8,
+      render: () => (
+        <Badge variant={status === 'EXPIRED' ? 'expired' : 'warning'}>
+          {status === 'EXPIRED' ? 'Süresi Geçti' : '30 Gün Kaldı'}
+        </Badge>
+      ),
+      exportValue: () => (status === 'EXPIRED' ? 'Süresi Geçti' : '30 Gün Kaldı'),
+    },
+    {
+      key: 'actions',
+      header: 'İşlem',
+      mobileLabel: 'İşlem',
+      mobilePriority: 7,
+      render: (row: any) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11 sm:h-10 sm:w-10 min-h-[44px] min-w-[44px] cursor-pointer hover:bg-red-100 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleViewElevator(row.identityNo)
+          }}
+          title={`${row.identityNo} detaylarını görüntüle`}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      ),
+      exportable: false,
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -172,47 +217,17 @@ export function WarningsPage() {
                         {isExpanded && (
                           <div className="border-t border-red-200 bg-white">
                             <div className="p-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Kimlik No</TableHead>
-                        <TableHead>Bitiş Tarihi</TableHead>
-                        <TableHead>Durum</TableHead>
-                                    <TableHead className="text-right">İşlem</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                                  {warning.elevators.map((elevator, elevatorIndex) => (
-                                    <TableRow key={`${buildingKey}-elevator-${elevatorIndex}`}>
-                          <TableCell className="font-medium">
-                                        {elevator.identityNo}
-                          </TableCell>
-                          <TableCell>
-                                        {elevator.maintenanceEndDate
-                                          ? formatDateShort(elevator.maintenanceEndDate)
-                              : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="expired">Süresi Geçti</Badge>
-                          </TableCell>
-                                      <TableCell className="text-right">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-11 w-11 sm:h-10 sm:w-10 min-h-[44px] min-w-[44px] cursor-pointer hover:bg-red-100 transition-colors"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleViewElevator(elevator.identityNo)
-                                          }}
-                                          title={`${elevator.identityNo} detaylarını görüntüle`}
-                                        >
-                                          <Eye className="h-4 w-4" />
-                                        </Button>
-                                      </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <TableResponsive
+                    data={warning.elevators.map((elevator, elevatorIndex) => ({
+                      ...elevator,
+                      rowIndex: elevatorIndex,
+                    }))}
+                    keyExtractor={(row: any) => `${buildingKey}-${row.rowIndex}`}
+                    columns={getWarningColumns('EXPIRED')}
+                    tableTitle={`${warning.buildingName} Süresi Geçti`}
+                    className="w-full"
+                    pageSize={10}
+                  />
                 </div>
                           </div>
                         )}
@@ -284,47 +299,17 @@ export function WarningsPage() {
                         {isExpanded && (
                           <div className="border-t border-orange-200 bg-white">
                             <div className="p-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Kimlik No</TableHead>
-                        <TableHead>Bitiş Tarihi</TableHead>
-                        <TableHead>Durum</TableHead>
-                                    <TableHead className="text-right">İşlem</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                                  {warning.elevators.map((elevator, elevatorIndex) => (
-                                    <TableRow key={`${buildingKey}-elevator-${elevatorIndex}`}>
-                          <TableCell className="font-medium">
-                                        {elevator.identityNo}
-                          </TableCell>
-                          <TableCell>
-                                        {elevator.maintenanceEndDate
-                                          ? formatDateShort(elevator.maintenanceEndDate)
-                              : '-'}
-                          </TableCell>
-                          <TableCell>
-                                        <Badge variant="warning">30 Gün Kaldı</Badge>
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-11 w-11 sm:h-10 sm:w-10 min-h-[44px] min-w-[44px] cursor-pointer hover:bg-orange-100 transition-colors"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleViewElevator(elevator.identityNo)
-                                          }}
-                                          title={`${elevator.identityNo} detaylarını görüntüle`}
-                                        >
-                                          <Eye className="h-4 w-4" />
-                                        </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <TableResponsive
+                    data={warning.elevators.map((elevator, elevatorIndex) => ({
+                      ...elevator,
+                      rowIndex: elevatorIndex,
+                    }))}
+                    keyExtractor={(row: any) => `${buildingKey}-${row.rowIndex}`}
+                    columns={getWarningColumns('WARNING')}
+                    tableTitle={`${warning.buildingName} 30 Gün Kalan`}
+                    className="w-full"
+                    pageSize={10}
+                  />
                 </div>
                           </div>
                         )}
@@ -346,4 +331,3 @@ export function WarningsPage() {
     </div>
   )
 }
-
