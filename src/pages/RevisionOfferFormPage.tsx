@@ -17,6 +17,9 @@ export function RevisionOfferFormPage() {
     enabled: isEditMode,
   })
 
+  const isReadonly =
+    offerQuery.data?.status === 'REJECTED' || offerQuery.data?.status === 'CONVERTED'
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -52,7 +55,18 @@ export function RevisionOfferFormPage() {
         </div>
       ) : null}
 
-      {!offerQuery.isLoading && !offerQuery.isError ? (
+      {isEditMode && !offerQuery.isLoading && !offerQuery.isError && isReadonly ? (
+        <div className="rounded-xl border border-muted bg-muted/30 p-6">
+          <div className="font-semibold">Bu revizyon teklifi salt okunur durumda.</div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            {offerQuery.data?.status === 'CONVERTED'
+              ? 'Satışa dönüştürülen teklifler artık düzenlenemez.'
+              : 'Reddedilen teklifler artık düzenlenemez.'}
+          </div>
+        </div>
+      ) : null}
+
+      {!offerQuery.isLoading && !offerQuery.isError && !isReadonly ? (
         <RevisionOfferForm
           offer={offerQuery.data || null}
           onCancel={() => navigate('/revision-offers')}

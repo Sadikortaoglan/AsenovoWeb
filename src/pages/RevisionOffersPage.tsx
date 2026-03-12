@@ -9,9 +9,37 @@ import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Edit, Trash2, Search, Download } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, Download, Send, Check, X, RefreshCcw, ArrowUpRight } from 'lucide-react'
 import { formatDateShort, formatCurrency } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { extractBlobErrorMessage, triggerBlobDownload } from '@/lib/blob-download'
+import { getUserFriendlyErrorMessage } from '@/lib/api-error-handler'
+
+function getConvertToSaleErrorMessage(error: unknown): string {
+  const message = getUserFriendlyErrorMessage(error)
+  const normalizedMessage = message.toLowerCase()
+
+  if (
+    normalizedMessage.includes('facility') ||
+    normalizedMessage.includes('b2bunit') ||
+    normalizedMessage.includes('b2b unit') ||
+    normalizedMessage.includes('missing')
+  ) {
+    return 'Satışa dönüştürme için teklifte geçerli tesis (bina) ve cari hesap bilgisi eksik.'
+  }
+
+  return message
+}
+
+function isAlreadyConvertedError(error: unknown): boolean {
+  const message = getUserFriendlyErrorMessage(error).toLowerCase()
+
+  return (
+    message.includes('already approved and converted to sale') ||
+    message.includes('already converted to sale') ||
+    message.includes('already converted')
+  )
+}
 
 export function RevisionOffersPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -27,6 +55,35 @@ export function RevisionOffersPage() {
     queryFn: () => revisionOfferService.getAll({ status: statusFilter === 'all' ? undefined : statusFilter }),
   })
 
+  const handleConvertedResult = (offer: RevisionOffer, message?: string | null) => {
+    queryClient.invalidateQueries({ queryKey: ['revision-offers'] })
+    toast({
+      title: 'Başarılı',
+      description: message || 'Revizyon teklifi satışa dönüştürüldü.',
+      variant: 'success',
+    })
+
+    if (offer.currentAccountId) {
+      navigate(`/b2b-units/${offer.currentAccountId}?panel=salesInvoice`, {
+        state: {
+          convertedToSaleId: offer.convertedToSaleId,
+          saleNo: offer.saleNo,
+        },
+      })
+    }
+  }
+
+  const reconcileAlreadyConvertedOffer = async (offerId: number) => {
+    const freshOffer = await revisionOfferService.getById(offerId)
+
+    if (freshOffer.status === 'CONVERTED' || freshOffer.convertedToSaleId) {
+      handleConvertedResult(freshOffer, 'Revizyon teklifi zaten satışa dönüştürülmüş.')
+      return true
+    }
+
+    return false
+  }
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => revisionOfferService.delete(id),
     onSuccess: () => {
@@ -41,31 +98,109 @@ export function RevisionOffersPage() {
 
   const generatePDFMutation = useMutation({
     mutationFn: (id: number) => revisionOfferService.generatePDF(id),
-    onSuccess: (blob, id) => {
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `revizyon-teklifi-${id}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+    onSuccess: ({ blob, filename }) => {
+      triggerBlobDownload(blob, filename)
       toast({
         title: 'Başarılı',
         description: 'PDF başarıyla indirildi.',
         variant: 'success',
       })
     },
+    onError: async (error) => {
+      const backendMessage = await extractBlobErrorMessage(error)
+      toast({
+        title: 'Hata',
+        description: backendMessage || 'PDF indirilirken bir hata oluştu.',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: RevisionOffer['status'] }) =>
+      revisionOfferService.updateWithMessage(id, { status }),
+    onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['revision-offers'] })
+      const descriptions: Record<RevisionOffer['status'], string> = {
+        DRAFT: 'Revizyon teklifi durumu güncellendi.',
+        SENT: 'Revizyon teklifi gönderildi.',
+        ACCEPTED: 'Revizyon teklifi kabul edildi.',
+        REJECTED: 'Revizyon teklifi reddedildi.',
+        CONVERTED: 'Revizyon teklifi satışa dönüştürüldü.',
+      }
+      toast({
+        title: 'Başarılı',
+        description: result.message || descriptions[variables.status],
+        variant: 'success',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Hata',
+        description: getUserFriendlyErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const convertToSaleMutation = useMutation({
+    mutationFn: (id: number) => revisionOfferService.convertToSaleWithMessage(id),
+    onSuccess: (result) => {
+      handleConvertedResult(result.offer, result.message)
+    },
+    onError: async (error, offerId) => {
+      if (isAlreadyConvertedError(error) && await reconcileAlreadyConvertedOffer(offerId)) {
+        return
+      }
+
+      toast({
+        title: 'Hata',
+        description: getConvertToSaleErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const finalizeOfferMutation = useMutation({
+    mutationFn: async (offer: RevisionOffer) => {
+      if (offer.status === 'ACCEPTED') {
+        return revisionOfferService.convertToSaleWithMessage(offer.id)
+      }
+
+      await revisionOfferService.updateWithMessage(offer.id, { status: 'ACCEPTED' })
+      return revisionOfferService.convertToSaleWithMessage(offer.id)
+    },
+    onSuccess: (result) => {
+      handleConvertedResult(result.offer, result.message)
+    },
+    onError: async (error, offer) => {
+      if (isAlreadyConvertedError(error) && await reconcileAlreadyConvertedOffer(offer.id)) {
+        return
+      }
+
+      toast({
+        title: 'Hata',
+        description: getConvertToSaleErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
   })
 
   const offersArray = Array.isArray(offers) ? offers : []
-  const filteredOffers = offersArray.filter(
-    (offer) =>
-      offer.offerNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      offer.elevatorIdentityNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      offer.elevatorBuildingName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      offer.currentAccountName?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase()
+  const filteredOffers = offersArray.filter((offer) => {
+    const matchesStatus = statusFilter === 'all' || offer.status === statusFilter
+    if (!matchesStatus) return false
+    if (!normalizedSearchTerm) return true
+
+    return (
+      offer.offerNo?.toLowerCase().includes(normalizedSearchTerm) ||
+      offer.elevatorIdentityNumber?.toLowerCase().includes(normalizedSearchTerm) ||
+      offer.buildingName?.toLowerCase().includes(normalizedSearchTerm) ||
+      offer.elevatorBuildingName?.toLowerCase().includes(normalizedSearchTerm) ||
+      offer.currentAccountName?.toLowerCase().includes(normalizedSearchTerm)
+    )
+  })
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -95,6 +230,10 @@ export function RevisionOffersPage() {
       setOfferToDelete(null)
     }
   }
+
+  const isReadonly = (offer: RevisionOffer) => offer.status === 'REJECTED' || offer.status === 'CONVERTED'
+  const canEdit = (offer: RevisionOffer) => !isReadonly(offer)
+  const canDelete = (offer: RevisionOffer) => offer.status === 'DRAFT'
 
   return (
     <div className="space-y-6">
@@ -166,6 +305,7 @@ export function RevisionOffersPage() {
               header: 'Bina',
               mobileLabel: 'Bina',
               mobilePriority: 8,
+              render: (offer: RevisionOffer) => offer.buildingName || offer.elevatorBuildingName || '-',
             },
             {
               key: 'currentAccountName',
@@ -204,6 +344,88 @@ export function RevisionOffersPage() {
               hideOnMobile: false,
               render: (offer: RevisionOffer) => (
                 <div className="flex items-center justify-end gap-2">
+                  {offer.status === 'DRAFT' ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => updateStatusMutation.mutate({ id: offer.id, status: 'SENT' })}
+                      disabled={
+                        updateStatusMutation.isPending ||
+                        convertToSaleMutation.isPending ||
+                        finalizeOfferMutation.isPending
+                      }
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title="Gönder"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                  {offer.status === 'SENT' ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => finalizeOfferMutation.mutate(offer)}
+                        disabled={
+                          updateStatusMutation.isPending ||
+                          convertToSaleMutation.isPending ||
+                          finalizeOfferMutation.isPending
+                        }
+                        className="h-11 w-11 sm:h-10 sm:w-10"
+                        title="Satışa Dönüştür"
+                      >
+                        <Check className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => updateStatusMutation.mutate({ id: offer.id, status: 'REJECTED' })}
+                        disabled={
+                          updateStatusMutation.isPending ||
+                          convertToSaleMutation.isPending ||
+                          finalizeOfferMutation.isPending
+                        }
+                        className="h-11 w-11 sm:h-10 sm:w-10"
+                        title="Reddet"
+                      >
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </>
+                  ) : null}
+                  {offer.status === 'ACCEPTED' ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => finalizeOfferMutation.mutate(offer)}
+                      disabled={
+                        updateStatusMutation.isPending ||
+                        convertToSaleMutation.isPending ||
+                        finalizeOfferMutation.isPending
+                      }
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title="Satışa Dönüştür"
+                    >
+                      <RefreshCcw className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                  {offer.status === 'CONVERTED' && offer.convertedToSaleId && offer.currentAccountId ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        navigate(`/b2b-units/${offer.currentAccountId}?panel=salesInvoice`, {
+                          state: {
+                            convertedToSaleId: offer.convertedToSaleId,
+                            saleNo: offer.saleNo,
+                          },
+                        })
+                      }
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title={offer.saleNo ? `Satış ekranını aç (${offer.saleNo})` : 'Satış ekranını aç'}
+                    >
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Button>
+                  ) : null}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -213,24 +435,28 @@ export function RevisionOffersPage() {
                   >
                     <Download className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigate(`/revision-offers/${offer.id}/edit`)}
-                    className="h-11 w-11 sm:h-10 sm:w-10"
-                    title="Düzenle"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(offer.id)}
-                    className="h-11 w-11 sm:h-10 sm:w-10"
-                    title="Sil"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  {canEdit(offer) ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigate(`/revision-offers/${offer.id}/edit`)}
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title="Düzenle"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                  {canDelete(offer) ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(offer.id)}
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title="Sil"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  ) : null}
                 </div>
               ),
             },
