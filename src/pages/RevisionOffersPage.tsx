@@ -31,16 +31,6 @@ function getConvertToSaleErrorMessage(error: unknown): string {
   return message
 }
 
-function isAlreadyConvertedError(error: unknown): boolean {
-  const message = getUserFriendlyErrorMessage(error).toLowerCase()
-
-  return (
-    message.includes('already approved and converted to sale') ||
-    message.includes('already converted to sale') ||
-    message.includes('already converted')
-  )
-}
-
 export function RevisionOffersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -54,35 +44,6 @@ export function RevisionOffersPage() {
     queryKey: ['revision-offers', statusFilter],
     queryFn: () => revisionOfferService.getAll({ status: statusFilter === 'all' ? undefined : statusFilter }),
   })
-
-  const handleConvertedResult = (offer: RevisionOffer, message?: string | null) => {
-    queryClient.invalidateQueries({ queryKey: ['revision-offers'] })
-    toast({
-      title: 'Başarılı',
-      description: message || 'Revizyon teklifi satışa dönüştürüldü.',
-      variant: 'success',
-    })
-
-    if (offer.currentAccountId) {
-      navigate(`/b2b-units/${offer.currentAccountId}?panel=salesInvoice`, {
-        state: {
-          convertedToSaleId: offer.convertedToSaleId,
-          saleNo: offer.saleNo,
-        },
-      })
-    }
-  }
-
-  const reconcileAlreadyConvertedOffer = async (offerId: number) => {
-    const freshOffer = await revisionOfferService.getById(offerId)
-
-    if (freshOffer.status === 'CONVERTED' || freshOffer.convertedToSaleId) {
-      handleConvertedResult(freshOffer, 'Revizyon teklifi zaten satışa dönüştürülmüş.')
-      return true
-    }
-
-    return false
-  }
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => revisionOfferService.delete(id),
@@ -125,12 +86,20 @@ export function RevisionOffersPage() {
         DRAFT: 'Revizyon teklifi durumu güncellendi.',
         SENT: 'Revizyon teklifi gönderildi.',
         ACCEPTED: 'Revizyon teklifi kabul edildi.',
-        REJECTED: 'Revizyon teklifi reddedildi.',
+        REJECTED: 'Revizyon teklifi iptal edildi.',
         CONVERTED: 'Revizyon teklifi satışa dönüştürüldü.',
       }
+
+      const message =
+        result.offer.status === 'CONVERTED'
+          ? 'Revizyon teklifi satışa dönüştürüldü.'
+          : result.offer.status === 'REJECTED'
+            ? 'Revizyon teklifi reddedildi.'
+            : result.message || descriptions[variables.status]
+
       toast({
         title: 'Başarılı',
-        description: result.message || descriptions[variables.status],
+        description: message,
         variant: 'success',
       })
     },
@@ -146,38 +115,14 @@ export function RevisionOffersPage() {
   const convertToSaleMutation = useMutation({
     mutationFn: (id: number) => revisionOfferService.convertToSaleWithMessage(id),
     onSuccess: (result) => {
-      handleConvertedResult(result.offer, result.message)
-    },
-    onError: async (error, offerId) => {
-      if (isAlreadyConvertedError(error) && await reconcileAlreadyConvertedOffer(offerId)) {
-        return
-      }
-
+      queryClient.invalidateQueries({ queryKey: ['revision-offers'] })
       toast({
-        title: 'Hata',
-        description: getConvertToSaleErrorMessage(error),
-        variant: 'destructive',
+        title: 'Başarılı',
+        description: result.message || 'Revizyon teklifi satışa dönüştürüldü.',
+        variant: 'success',
       })
     },
-  })
-
-  const finalizeOfferMutation = useMutation({
-    mutationFn: async (offer: RevisionOffer) => {
-      if (offer.status === 'ACCEPTED') {
-        return revisionOfferService.convertToSaleWithMessage(offer.id)
-      }
-
-      await revisionOfferService.updateWithMessage(offer.id, { status: 'ACCEPTED' })
-      return revisionOfferService.convertToSaleWithMessage(offer.id)
-    },
-    onSuccess: (result) => {
-      handleConvertedResult(result.offer, result.message)
-    },
-    onError: async (error, offer) => {
-      if (isAlreadyConvertedError(error) && await reconcileAlreadyConvertedOffer(offer.id)) {
-        return
-      }
-
+    onError: (error) => {
       toast({
         title: 'Hata',
         description: getConvertToSaleErrorMessage(error),
@@ -211,7 +156,7 @@ export function RevisionOffersPage() {
       case 'ACCEPTED':
         return <Badge variant="success">Kabul Edildi</Badge>
       case 'REJECTED':
-        return <Badge variant="expired">Reddedildi</Badge>
+        return <Badge variant="expired">Iptal / Reddedildi</Badge>
       case 'CONVERTED':
         return <Badge variant="default">Satışa Dönüştürüldü</Badge>
       default:
@@ -349,11 +294,7 @@ export function RevisionOffersPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => updateStatusMutation.mutate({ id: offer.id, status: 'SENT' })}
-                      disabled={
-                        updateStatusMutation.isPending ||
-                        convertToSaleMutation.isPending ||
-                        finalizeOfferMutation.isPending
-                      }
+                      disabled={updateStatusMutation.isPending || convertToSaleMutation.isPending}
                       className="h-11 w-11 sm:h-10 sm:w-10"
                       title="Gönder"
                     >
@@ -365,14 +306,10 @@ export function RevisionOffersPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => finalizeOfferMutation.mutate(offer)}
-                        disabled={
-                          updateStatusMutation.isPending ||
-                          convertToSaleMutation.isPending ||
-                          finalizeOfferMutation.isPending
-                        }
+                        onClick={() => updateStatusMutation.mutate({ id: offer.id, status: 'ACCEPTED' })}
+                        disabled={updateStatusMutation.isPending || convertToSaleMutation.isPending}
                         className="h-11 w-11 sm:h-10 sm:w-10"
-                        title="Satışa Dönüştür"
+                        title="Kabul Et"
                       >
                         <Check className="h-4 w-4 text-green-600" />
                       </Button>
@@ -380,11 +317,7 @@ export function RevisionOffersPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => updateStatusMutation.mutate({ id: offer.id, status: 'REJECTED' })}
-                        disabled={
-                          updateStatusMutation.isPending ||
-                          convertToSaleMutation.isPending ||
-                          finalizeOfferMutation.isPending
-                        }
+                        disabled={updateStatusMutation.isPending || convertToSaleMutation.isPending}
                         className="h-11 w-11 sm:h-10 sm:w-10"
                         title="Reddet"
                       >
@@ -396,12 +329,8 @@ export function RevisionOffersPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => finalizeOfferMutation.mutate(offer)}
-                      disabled={
-                        updateStatusMutation.isPending ||
-                        convertToSaleMutation.isPending ||
-                        finalizeOfferMutation.isPending
-                      }
+                      onClick={() => convertToSaleMutation.mutate(offer.id)}
+                      disabled={updateStatusMutation.isPending || convertToSaleMutation.isPending}
                       className="h-11 w-11 sm:h-10 sm:w-10"
                       title="Satışa Dönüştür"
                     >
