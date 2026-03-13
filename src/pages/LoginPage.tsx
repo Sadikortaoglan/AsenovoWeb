@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -75,7 +75,8 @@ export function LoginPage() {
             </div>
 
             {/* Title */}
-            <h2 className="mb-6 text-center text-2xl font-semibold text-emerald-300">Sisteme Giriş</h2>
+            <h2 className="mb-2 text-center text-2xl font-semibold text-emerald-300">Tenant Girişi</h2>
+            <p className="mb-6 text-center text-sm text-gray-400">Bu ekran tenant kullanıcıları içindir.</p>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="relative z-10 space-y-4">
@@ -114,7 +115,10 @@ export function LoginPage() {
                 disabled={isLoading}
                 className="mt-6 w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/50 transition-all duration-200 hover:from-emerald-400 hover:to-teal-400 hover:shadow-emerald-400/70 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Giriş yapılıyor...' : 'GİRİŞ YAP'}
+                {isLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+              </Button>
+              <Button asChild type="button" variant="outline" className="w-full border-gray-500 text-gray-200">
+                <Link to="/platform/login">Platform Girişi</Link>
               </Button>
             </form>
           </div>

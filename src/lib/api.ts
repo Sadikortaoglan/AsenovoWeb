@@ -7,6 +7,7 @@ import {
   getRefreshTokenKey,
   syncTenantSession,
 } from './tenant'
+import { resolveRoleFromAuthSource } from './roles'
 
 const API_BASE_URL = resolveApiBaseUrl()
 
@@ -21,6 +22,24 @@ interface UiErrorPayload {
 const emitUiApiError = (payload: UiErrorPayload) => {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent<UiErrorPayload>('app:api-error', { detail: payload }))
+}
+
+const isAuthEndpointRequest = (url: string) =>
+  url.includes('/auth/login') ||
+  url.includes('/auth/refresh') ||
+  url.includes('/platform/setup-status')
+
+const resolveLoginRouteByToken = () => {
+  const token = tokenStorage.getAccessToken()
+  if (!token) return '/login'
+
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    const role = resolveRoleFromAuthSource(payload as Record<string, unknown>)
+    return role === 'PLATFORM_ADMIN' ? '/platform/login' : '/login'
+  } catch {
+    return '/login'
+  }
 }
 
 const getCurrentTenant = () => {
@@ -73,7 +92,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const url = config.url || ''
-    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh')
+    const isAuthEndpoint = isAuthEndpointRequest(url)
     
     // Ensure headers object exists
     if (!config.headers) {
@@ -171,7 +190,7 @@ apiClient.interceptors.response.use(
 
     const responseStatus = error.response?.status
     const isAuthError = responseStatus === 401 || responseStatus === 403
-    const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/refresh')
+    const isAuthEndpoint = isAuthEndpointRequest(originalRequest?.url || '')
 
     if (isAuthError && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
@@ -192,13 +211,14 @@ apiClient.interceptors.response.use(
 
       const refreshToken = tokenStorage.getRefreshToken()
       if (!refreshToken) {
+        const loginRoute = resolveLoginRouteByToken()
         tokenStorage.clearTokens()
         emitUiApiError({
           code: 'UNAUTHORIZED',
           status: 401,
           message: 'Oturum süreniz doldu. Lütfen tekrar giriş yapın.',
         })
-        window.location.href = '/login'
+        window.location.href = loginRoute
         isRefreshing = false
         return Promise.reject(error)
       }
@@ -261,6 +281,7 @@ apiClient.interceptors.response.use(
         const refreshStatusCode = refreshError?.response?.status || refreshError?.status || 0
         
         if (refreshStatusCode === 400 || refreshStatusCode === 401 || refreshStatusCode === 403 || !refreshToken) {
+          const loginRoute = resolveLoginRouteByToken()
           tokenStorage.clearTokens()
           emitUiApiError({
             code: 'UNAUTHORIZED',
@@ -268,7 +289,7 @@ apiClient.interceptors.response.use(
             message: 'Oturum süreniz doldu. Lütfen tekrar giriş yapın.',
           })
           
-          window.location.href = '/login'
+          window.location.href = loginRoute
         }
         
         return Promise.reject(refreshError)
@@ -295,33 +316,35 @@ apiClient.interceptors.response.use(
       ''
     const normalizedMessage = String(responseMessage).toLowerCase()
 
-    if (
-      responseStatus === 404 &&
-      (normalizedMessage.includes('tenant_not_found') || normalizedMessage.includes('tenant not found'))
-    ) {
-      emitUiApiError({
-        code: 'TENANT_NOT_FOUND',
-        status: 404,
-        message: 'Tenant bulunamadı. Lütfen doğru alan adını kullanın.',
-      })
-    } else if (responseStatus === 401) {
-      emitUiApiError({
-        code: 'UNAUTHORIZED',
-        status: 401,
-        message: 'Oturum geçersiz. Lütfen tekrar giriş yapın.',
-      })
-    } else if (responseStatus === 403) {
-      emitUiApiError({
-        code: 'FORBIDDEN',
-        status: 403,
-        message: 'Bu işlem için yetkiniz bulunmuyor.',
-      })
-    } else if (responseStatus === 429) {
-      emitUiApiError({
-        code: 'RATE_LIMIT',
-        status: 429,
-        message: 'Too many requests. Please try again later.',
-      })
+    if (!isAuthEndpoint) {
+      if (
+        responseStatus === 404 &&
+        (normalizedMessage.includes('tenant_not_found') || normalizedMessage.includes('tenant not found'))
+      ) {
+        emitUiApiError({
+          code: 'TENANT_NOT_FOUND',
+          status: 404,
+          message: 'Tenant bulunamadı. Lütfen doğru alan adını kullanın.',
+        })
+      } else if (responseStatus === 401) {
+        emitUiApiError({
+          code: 'UNAUTHORIZED',
+          status: 401,
+          message: 'Oturum geçersiz. Lütfen tekrar giriş yapın.',
+        })
+      } else if (responseStatus === 403) {
+        emitUiApiError({
+          code: 'FORBIDDEN',
+          status: 403,
+          message: 'Bu işlem için yetkiniz bulunmuyor.',
+        })
+      } else if (responseStatus === 429) {
+        emitUiApiError({
+          code: 'RATE_LIMIT',
+          status: 429,
+          message: 'Too many requests. Please try again later.',
+        })
+      }
     }
     
     return Promise.reject(apiError)

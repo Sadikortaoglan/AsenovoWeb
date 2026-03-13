@@ -43,9 +43,9 @@ export function UsersPage() {
 
   const usersArray = Array.isArray(users) ? users : []
   
-  const activeSystemAdmins = usersArray.filter((u) => u.role === 'SYSTEM_ADMIN' && (u.enabled || u.active))
+  const activeSystemAdmins = usersArray.filter((u) => u.role === 'PLATFORM_ADMIN' && (u.enabled || u.active))
   const isLastActiveSystemAdmin = (user: User) =>
-    user.role === 'SYSTEM_ADMIN' &&
+    user.role === 'PLATFORM_ADMIN' &&
     (user.enabled || user.active) &&
     activeSystemAdmins.length === 1
 
@@ -85,7 +85,7 @@ export function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Kullanıcılar</h1>
-          <p className="text-muted-foreground">Sistem kullanıcılarının yönetimi (SYSTEM_ADMIN/STAFF_ADMIN)</p>
+          <p className="text-muted-foreground">Sistem kullanıcılarının yönetimi (PLATFORM_ADMIN/TENANT_ADMIN)</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -135,7 +135,7 @@ export function UsersPage() {
               mobileLabel: 'Rol',
               mobilePriority: 9,
               render: (user: User) => (
-                      <Badge variant={user.role === 'SYSTEM_ADMIN' ? 'default' : 'secondary'}>
+                      <Badge variant={user.role === 'PLATFORM_ADMIN' ? 'default' : 'secondary'}>
                         {user.role}
                       </Badge>
               ),
@@ -175,7 +175,7 @@ export function UsersPage() {
                       variant="ghost"
                       size="icon"
                       disabled
-                      title="En az bir aktif SYSTEM_ADMIN bulunmalıdır."
+                      title="En az bir aktif PLATFORM_ADMIN bulunmalıdır."
                       className="h-11 w-11 sm:h-10 sm:w-10"
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
@@ -227,12 +227,12 @@ function UserFormDialog({
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    role: 'STAFF_USER' as 'SYSTEM_ADMIN' | 'STAFF_ADMIN' | 'STAFF_USER',
+    role: 'STAFF_USER' as 'PLATFORM_ADMIN' | 'TENANT_ADMIN' | 'STAFF_USER',
     enabled: true,
   })
   const { toast } = useToast()
   const normalizeEditableRole = (role?: User['role']) => {
-    if (role === 'SYSTEM_ADMIN' || role === 'STAFF_ADMIN' || role === 'STAFF_USER') {
+    if (role === 'PLATFORM_ADMIN' || role === 'TENANT_ADMIN' || role === 'STAFF_USER') {
       return role
     }
     return 'STAFF_USER'
@@ -361,9 +361,9 @@ function UserFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="role">Rol *</Label>
-              <Select
-                value={formData.role}
-                onValueChange={(value: 'SYSTEM_ADMIN' | 'STAFF_ADMIN' | 'STAFF_USER') =>
+                <Select
+                  value={formData.role}
+                onValueChange={(value: 'PLATFORM_ADMIN' | 'TENANT_ADMIN' | 'STAFF_USER') =>
                   setFormData({ ...formData, role: value })
                 }
               >
@@ -371,8 +371,8 @@ function UserFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SYSTEM_ADMIN">SYSTEM_ADMIN</SelectItem>
-                  <SelectItem value="STAFF_ADMIN">STAFF_ADMIN</SelectItem>
+                  <SelectItem value="PLATFORM_ADMIN">PLATFORM_ADMIN</SelectItem>
+                  <SelectItem value="TENANT_ADMIN">TENANT_ADMIN</SelectItem>
                   <SelectItem value="STAFF_USER">STAFF_USER</SelectItem>
                 </SelectContent>
               </Select>
@@ -387,11 +387,11 @@ function UserFormDialog({
                   }
                   disabled={(() => {
                     const activeSystemAdmins = usersArray.filter(u => 
-                      u.role === 'SYSTEM_ADMIN' && 
+                      u.role === 'PLATFORM_ADMIN' && 
                       (u.enabled || u.active) && 
                       u.id !== user.id
                     )
-                    return user.role === 'SYSTEM_ADMIN' && 
+                    return user.role === 'PLATFORM_ADMIN' && 
                            (user.enabled || user.active) && 
                            activeSystemAdmins.length === 0
                   })()}
@@ -400,14 +400,14 @@ function UserFormDialog({
                     className="w-full"
                     title={(() => {
                       const activeSystemAdmins = usersArray.filter(u => 
-                        u.role === 'SYSTEM_ADMIN' && 
+                        u.role === 'PLATFORM_ADMIN' && 
                         (u.enabled || u.active) && 
                         u.id !== user.id
                       )
-                      if (user.role === 'SYSTEM_ADMIN' && 
+                      if (user.role === 'PLATFORM_ADMIN' && 
                           (user.enabled || user.active) && 
                           activeSystemAdmins.length === 0) {
-                        return 'En az bir aktif SYSTEM_ADMIN bulunmalıdır.'
+                        return 'En az bir aktif PLATFORM_ADMIN bulunmalıdır.'
                       }
                       return ''
                     })()}

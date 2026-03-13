@@ -46,8 +46,8 @@ export function QRStartDialog({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Check if user is ADMIN/PATRON
-  const isAdmin = hasRole('PATRON') // PATRON = ADMIN role in this system
+  // Check if user is tenant admin
+  const isAdmin = hasRole('TENANT_ADMIN')
 
   // Reset form when dialog closes
   useEffect(() => {

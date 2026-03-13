@@ -33,8 +33,20 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: devProxyTarget,
-          changeOrigin: true,
+          // Tenant-aware local dev:
+          // Open UI with subdomain host (e.g. http://yeniitenant.asenovo.local:5173)
+          // and keep that host context when proxying to backend.
+          changeOrigin: false,
+          xfwd: true,
           secure: false,
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq: any, req: any) => {
+              const incomingHost = req?.headers?.host
+              if (incomingHost) {
+                proxyReq.setHeader('X-Forwarded-Host', incomingHost)
+              }
+            })
+          },
         },
       },
     },
