@@ -1,31 +1,42 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-// import { useNavigate } from 'react-router-dom' // Reserved for future use
+import { useNavigate } from 'react-router-dom'
 import { revisionOfferService, type RevisionOffer } from '@/services/revision-offer.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TableResponsive } from '@/components/ui/table-responsive'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Edit, Trash2, Search, Download } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, Download, Send, Check, X, RefreshCcw, ArrowUpRight } from 'lucide-react'
 import { formatDateShort, formatCurrency } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { RevisionOfferFormDialog } from './RevisionOfferFormDialog'
+import { extractBlobErrorMessage, triggerBlobDownload } from '@/lib/blob-download'
+import { getUserFriendlyErrorMessage } from '@/lib/api-error-handler'
+
+function getConvertToSaleErrorMessage(error: unknown): string {
+  const message = getUserFriendlyErrorMessage(error)
+  const normalizedMessage = message.toLowerCase()
+
+  if (
+    normalizedMessage.includes('facility') ||
+    normalizedMessage.includes('b2bunit') ||
+    normalizedMessage.includes('b2b unit') ||
+    normalizedMessage.includes('missing')
+  ) {
+    return 'Satışa dönüştürme için teklifte geçerli tesis (bina) ve cari hesap bilgisi eksik.'
+  }
+
+  return message
+}
 
 export function RevisionOffersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedOffer, setSelectedOffer] = useState<RevisionOffer | null>(null)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [offerToDelete, setOfferToDelete] = useState<number | null>(null)
-  // const navigate = useNavigate() // Reserved for future use
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
@@ -48,31 +59,93 @@ export function RevisionOffersPage() {
 
   const generatePDFMutation = useMutation({
     mutationFn: (id: number) => revisionOfferService.generatePDF(id),
-    onSuccess: (blob, id) => {
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `revizyon-teklifi-${id}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+    onSuccess: ({ blob, filename }) => {
+      triggerBlobDownload(blob, filename)
       toast({
         title: 'Başarılı',
         description: 'PDF başarıyla indirildi.',
         variant: 'success',
       })
     },
+    onError: async (error) => {
+      const backendMessage = await extractBlobErrorMessage(error)
+      toast({
+        title: 'Hata',
+        description: backendMessage || 'PDF indirilirken bir hata oluştu.',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: RevisionOffer['status'] }) =>
+      revisionOfferService.updateWithMessage(id, { status }),
+    onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['revision-offers'] })
+      const descriptions: Record<RevisionOffer['status'], string> = {
+        DRAFT: 'Revizyon teklifi durumu güncellendi.',
+        SENT: 'Revizyon teklifi gönderildi.',
+        ACCEPTED: 'Revizyon teklifi kabul edildi.',
+        REJECTED: 'Revizyon teklifi iptal edildi.',
+        CONVERTED: 'Revizyon teklifi satışa dönüştürüldü.',
+      }
+
+      const message =
+        result.offer.status === 'CONVERTED'
+          ? 'Revizyon teklifi satışa dönüştürüldü.'
+          : result.offer.status === 'REJECTED'
+            ? 'Revizyon teklifi reddedildi.'
+            : result.message || descriptions[variables.status]
+
+      toast({
+        title: 'Başarılı',
+        description: message,
+        variant: 'success',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Hata',
+        description: getUserFriendlyErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const convertToSaleMutation = useMutation({
+    mutationFn: (id: number) => revisionOfferService.convertToSaleWithMessage(id),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['revision-offers'] })
+      toast({
+        title: 'Başarılı',
+        description: result.message || 'Revizyon teklifi satışa dönüştürüldü.',
+        variant: 'success',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Hata',
+        description: getConvertToSaleErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
   })
 
   const offersArray = Array.isArray(offers) ? offers : []
-  const filteredOffers = offersArray.filter(
-    (offer) =>
-      offer.offerNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      offer.elevatorIdentityNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      offer.elevatorBuildingName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      offer.currentAccountName?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase()
+  const filteredOffers = offersArray.filter((offer) => {
+    const matchesStatus = statusFilter === 'all' || offer.status === statusFilter
+    if (!matchesStatus) return false
+    if (!normalizedSearchTerm) return true
+
+    return (
+      offer.offerNo?.toLowerCase().includes(normalizedSearchTerm) ||
+      offer.elevatorIdentityNumber?.toLowerCase().includes(normalizedSearchTerm) ||
+      offer.buildingName?.toLowerCase().includes(normalizedSearchTerm) ||
+      offer.elevatorBuildingName?.toLowerCase().includes(normalizedSearchTerm) ||
+      offer.currentAccountName?.toLowerCase().includes(normalizedSearchTerm)
+    )
+  })
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -83,7 +156,7 @@ export function RevisionOffersPage() {
       case 'ACCEPTED':
         return <Badge variant="success">Kabul Edildi</Badge>
       case 'REJECTED':
-        return <Badge variant="expired">Reddedildi</Badge>
+        return <Badge variant="expired">Iptal / Reddedildi</Badge>
       case 'CONVERTED':
         return <Badge variant="default">Satışa Dönüştürüldü</Badge>
       default:
@@ -103,6 +176,10 @@ export function RevisionOffersPage() {
     }
   }
 
+  const isReadonly = (offer: RevisionOffer) => offer.status === 'REJECTED' || offer.status === 'CONVERTED'
+  const canEdit = (offer: RevisionOffer) => !isReadonly(offer)
+  const canDelete = (offer: RevisionOffer) => offer.status === 'DRAFT'
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -110,22 +187,10 @@ export function RevisionOffersPage() {
           <h1 className="text-3xl font-bold">Revizyon Teklifleri</h1>
           <p className="text-muted-foreground">Tüm revizyon tekliflerinin listesi</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setSelectedOffer(null)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Yeni Teklif Oluştur
-            </Button>
-          </DialogTrigger>
-          <RevisionOfferFormDialog
-            offer={selectedOffer}
-            onClose={() => setIsDialogOpen(false)}
-            onSuccess={() => {
-              setIsDialogOpen(false)
-              queryClient.invalidateQueries({ queryKey: ['revision-offers'] })
-            }}
-          />
-        </Dialog>
+        <Button onClick={() => navigate('/revision-offers/new')}>
+          <Plus className="mr-2 h-4 w-4" />
+          Yeni Teklif Oluştur
+        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
@@ -185,6 +250,7 @@ export function RevisionOffersPage() {
               header: 'Bina',
               mobileLabel: 'Bina',
               mobilePriority: 8,
+              render: (offer: RevisionOffer) => offer.buildingName || offer.elevatorBuildingName || '-',
             },
             {
               key: 'currentAccountName',
@@ -223,6 +289,72 @@ export function RevisionOffersPage() {
               hideOnMobile: false,
               render: (offer: RevisionOffer) => (
                 <div className="flex items-center justify-end gap-2">
+                  {offer.status === 'DRAFT' ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => updateStatusMutation.mutate({ id: offer.id, status: 'SENT' })}
+                      disabled={updateStatusMutation.isPending || convertToSaleMutation.isPending}
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title="Gönder"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                  {offer.status === 'SENT' ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => updateStatusMutation.mutate({ id: offer.id, status: 'ACCEPTED' })}
+                        disabled={updateStatusMutation.isPending || convertToSaleMutation.isPending}
+                        className="h-11 w-11 sm:h-10 sm:w-10"
+                        title="Kabul Et"
+                      >
+                        <Check className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => updateStatusMutation.mutate({ id: offer.id, status: 'REJECTED' })}
+                        disabled={updateStatusMutation.isPending || convertToSaleMutation.isPending}
+                        className="h-11 w-11 sm:h-10 sm:w-10"
+                        title="Reddet"
+                      >
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </>
+                  ) : null}
+                  {offer.status === 'ACCEPTED' ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => convertToSaleMutation.mutate(offer.id)}
+                      disabled={updateStatusMutation.isPending || convertToSaleMutation.isPending}
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title="Satışa Dönüştür"
+                    >
+                      <RefreshCcw className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                  {offer.status === 'CONVERTED' && offer.convertedToSaleId && offer.currentAccountId ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        navigate(`/b2b-units/${offer.currentAccountId}?panel=salesInvoice`, {
+                          state: {
+                            convertedToSaleId: offer.convertedToSaleId,
+                            saleNo: offer.saleNo,
+                          },
+                        })
+                      }
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title={offer.saleNo ? `Satış ekranını aç (${offer.saleNo})` : 'Satış ekranını aç'}
+                    >
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Button>
+                  ) : null}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -232,36 +364,28 @@ export function RevisionOffersPage() {
                   >
                     <Download className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={async () => {
-                      try {
-                        const freshOffer = await revisionOfferService.getById(offer.id)
-                        setSelectedOffer(freshOffer)
-                        setIsDialogOpen(true)
-                      } catch (error) {
-                        toast({
-                          title: 'Hata',
-                          description: 'Teklif bilgileri yüklenirken bir hata oluştu.',
-                          variant: 'destructive',
-                        })
-                      }
-                    }}
-                    className="h-11 w-11 sm:h-10 sm:w-10"
-                    title="Düzenle"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(offer.id)}
-                    className="h-11 w-11 sm:h-10 sm:w-10"
-                    title="Sil"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  {canEdit(offer) ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigate(`/revision-offers/${offer.id}/edit`)}
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title="Düzenle"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                  {canDelete(offer) ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(offer.id)}
+                      className="h-11 w-11 sm:h-10 sm:w-10"
+                      title="Sil"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  ) : null}
                 </div>
               ),
             },

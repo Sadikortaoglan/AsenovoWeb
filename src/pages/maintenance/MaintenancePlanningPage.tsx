@@ -29,6 +29,25 @@ import { ElevatorQRValidationDialog } from '@/components/maintenance/ElevatorQRV
 import { MaintenanceFormDialog } from '@/components/MaintenanceFormDialog'
 // import { qrSessionService } from '@/services/qr-session.service' // Reserved for future use
 
+function getMaintenanceCreateErrorMessage(error: any): string {
+  const status = error?.response?.status
+  const backendMessage = error?.response?.data?.message
+
+  if (status === 403) {
+    return 'Bu işlem için yetkiniz bulunmuyor'
+  }
+
+  if (typeof backendMessage === 'string' && backendMessage.trim()) {
+    return backendMessage
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return 'Bakım planı oluşturulamadı'
+}
+
 export function MaintenancePlanningPage() {
   const { toast } = useToast()
   // const { hasRole } = useAuth() // Reserved for future use
@@ -121,7 +140,7 @@ export function MaintenancePlanningPage() {
     onError: (error: any) => {
       toast({
         title: 'Hata',
-        description: error.response?.data?.message || 'Bakım planı oluşturulamadı',
+        description: getMaintenanceCreateErrorMessage(error),
         variant: 'destructive',
       })
     },

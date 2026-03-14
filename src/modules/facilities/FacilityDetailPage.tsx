@@ -333,7 +333,7 @@ export function FacilityDetailPage() {
                 <GoogleMapPicker
                   lat={facility.mapLat}
                   lng={facility.mapLng}
-                  addressQuery={facility.mapAddressQuery || facility.addressText}
+                  addressQuery={facility.mapAddressQuery || facility.addressText || undefined}
                   onAddressQueryChange={() => undefined}
                   onLocationChange={() => undefined}
                   readOnly

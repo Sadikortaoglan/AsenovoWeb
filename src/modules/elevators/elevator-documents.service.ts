@@ -1,5 +1,6 @@
 import apiClient from '@/lib/api'
 import { unwrapResponse, type ApiResponse } from '@/lib/api-response'
+import { resolveApiBaseUrl } from '@/lib/api-base-url'
 import { getPage, toMultipartPayload } from '@/modules/shared/api'
 import type { SpringPage } from '@/modules/shared/types'
 
@@ -44,8 +45,7 @@ function emptyPage<T>(page: number, size: number): SpringPage<T> {
 }
 
 function resolveTenantApiBaseUrl(): string | undefined {
-  if (typeof window === 'undefined') return undefined
-  return `${window.location.origin}/api`
+  return resolveApiBaseUrl()
 }
 
 function normalizePageResponse<T>(payload: unknown, page: number, size: number): SpringPage<T> {

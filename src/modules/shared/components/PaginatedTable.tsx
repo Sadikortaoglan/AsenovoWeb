@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/use-toast'
 import {
   Table,
   TableBody,
@@ -66,6 +67,9 @@ interface PaginatedTableProps<T> {
   onSortChange?: (next: SortState) => void
   tableTitle?: string
   emptyMessage?: string
+  onExportExcel?: () => Promise<void> | void
+  onExportCsv?: () => Promise<void> | void
+  onExportPdf?: () => Promise<void> | void
 }
 
 export function PaginatedTable<T>({
@@ -77,11 +81,16 @@ export function PaginatedTable<T>({
   onSortChange,
   tableTitle = 'datatable',
   emptyMessage = 'Kayıt yok',
+  onExportExcel,
+  onExportCsv,
+  onExportPdf,
 }: PaginatedTableProps<T>) {
+  const { toast } = useToast()
   const rows = pageData?.content ?? []
   const pageIndex = pageData?.number ?? 0
   const last = pageData?.last ?? true
   const totalPages = Math.max(1, pageData?.totalPages ?? 1)
+  const exportDisabled = loading || rows.length === 0
 
   const exportColumns = useMemo(
     () => columns.filter((column) => column.key !== 'actions' && column.exportable !== false),
@@ -142,62 +151,83 @@ export function PaginatedTable<T>({
     const text = rowsAsTextRows.map((row) => row.join('\t')).join('\n')
     try {
       await navigator.clipboard.writeText(text)
+      toast({
+        title: 'Başarılı',
+        description: 'Tablodaki mevcut sayfa verisi panoya kopyalandı.',
+        variant: 'success',
+      })
       return
     } catch {
-      const textarea = document.createElement('textarea')
-      textarea.value = text
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.focus()
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+        toast({
+          title: 'Başarılı',
+          description: 'Tablodaki mevcut sayfa verisi panoya kopyalandı.',
+          variant: 'success',
+        })
+      } catch {
+        toast({
+          title: 'Hata',
+          description: 'Panoya kopyalama başarısız oldu.',
+          variant: 'destructive',
+        })
+      }
     }
   }
 
   const handleDownload = (content: string, mimeType: string, extension: string) => {
-    const blob = new Blob([content], { type: mimeType })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
+    try {
+      const blob = new Blob([content], { type: mimeType })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
 
-    link.href = url
-    link.download = `${tableTitle}-sayfa-${pageIndex + 1}.${extension}`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-  }
-
-  const handleExcel = () => {
-    const headerHtml = exportColumns.map((column) => `<th>${escapeHtml(column.header)}</th>`).join('')
-    const bodyHtml = rows
-      .map((row) => {
-        const rowHtml = exportColumns
-          .map((column) => `<td>${escapeHtml(toExportString(getCellValue(row, column)))}</td>`)
-          .join('')
-        return `<tr>${rowHtml}</tr>`
+      link.href = url
+      link.download = `${tableTitle}-sayfa-${pageIndex + 1}.${extension}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast({
+        title: 'Başarılı',
+        description: `${extension.toUpperCase()} dışa aktarma tamamlandı.`,
+        variant: 'success',
       })
-      .join('')
-
-    const html = `<!doctype html>
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-        <head>
-          <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        </head>
-        <body>
-          <table>
-            <thead>
-              <tr>${headerHtml}</tr>
-            </thead>
-            <tbody>${bodyHtml}</tbody>
-          </table>
-        </body>
-      </html>`
-    handleDownload(`\uFEFF${html}`, 'application/vnd.ms-excel', 'xls')
+    } catch {
+      toast({
+        title: 'Hata',
+        description: `${extension.toUpperCase()} dışa aktarma başarısız oldu.`,
+        variant: 'destructive',
+      })
+    }
   }
 
-  const handleCsv = () => {
+  const handleExcel = async () => {
+    if (onExportExcel) {
+      await onExportExcel()
+      return
+    }
+
+    toast({
+      title: 'Bilgi',
+      description: 'Excel dışa aktarma bu ekran için tanımlı değil.',
+      variant: 'destructive',
+    })
+  }
+
+  const handleCsv = async () => {
+    if (onExportCsv) {
+      await onExportCsv()
+      return
+    }
+
     const csv = rowsAsTextRows.map((row) => row.map((value) => escapeCsv(value)).join(',')).join('\n')
     handleDownload(`\uFEFF${csv}`, 'text/csv;charset=utf-8;', 'csv')
   }
@@ -239,9 +269,19 @@ export function PaginatedTable<T>({
       </html>`
   }
 
-  const handlePdf = () => {
+  const handlePdf = async () => {
+    if (onExportPdf) {
+      await onExportPdf()
+      return
+    }
+
     const popup = window.open('', '_blank')
     if (!popup) {
+      toast({
+        title: 'Hata',
+        description: 'PDF penceresi açılamadı. Tarayıcı pop-up engelini kontrol edin.',
+        variant: 'destructive',
+      })
       return
     }
 
@@ -251,11 +291,21 @@ export function PaginatedTable<T>({
     setTimeout(() => {
       popup.print()
     }, 250)
+    toast({
+      title: 'Başarılı',
+      description: 'PDF/print görünümü açıldı.',
+      variant: 'success',
+    })
   }
 
   const handlePrint = () => {
     const popup = window.open('', '_blank')
     if (!popup) {
+      toast({
+        title: 'Hata',
+        description: 'Yazdırma penceresi açılamadı. Tarayıcı pop-up engelini kontrol edin.',
+        variant: 'destructive',
+      })
       return
     }
 
@@ -265,6 +315,11 @@ export function PaginatedTable<T>({
     setTimeout(() => {
       popup.print()
     }, 250)
+    toast({
+      title: 'Başarılı',
+      description: 'Yazdırma görünümü açıldı.',
+      variant: 'success',
+    })
   }
 
   return (
@@ -273,23 +328,23 @@ export function PaginatedTable<T>({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
           <span className="text-sm text-slate-700 font-medium">Sayfa {pageIndex + 1} / {totalPages}</span>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={handleCopy}>
+            <Button variant="outline" size="sm" onClick={handleCopy} disabled={exportDisabled}>
               <ClipboardCopy className="h-4 w-4 mr-1" />
               Kopyala
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExcel}>
+            <Button variant="outline" size="sm" onClick={() => void handleExcel()} disabled={exportDisabled}>
               <FileSpreadsheet className="h-4 w-4 mr-1" />
               Excel
             </Button>
-            <Button variant="outline" size="sm" onClick={handlePdf}>
+            <Button variant="outline" size="sm" onClick={() => void handlePdf()} disabled={exportDisabled}>
               <FileText className="h-4 w-4 mr-1" />
               PDF
             </Button>
-            <Button variant="outline" size="sm" onClick={handleCsv}>
+            <Button variant="outline" size="sm" onClick={() => void handleCsv()} disabled={exportDisabled}>
               <FileText className="h-4 w-4 mr-1" />
               CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={handlePrint}>
+            <Button variant="outline" size="sm" onClick={handlePrint} disabled={exportDisabled}>
               <Printer className="h-4 w-4 mr-1" />
               Yazdır
             </Button>

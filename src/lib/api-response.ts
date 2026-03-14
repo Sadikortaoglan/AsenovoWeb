@@ -5,6 +5,14 @@ export interface ApiResponse<T> {
   errors: string[] | null
 }
 
+interface PageLike<T> {
+  content?: T[]
+}
+
+function isPageLike<T>(value: unknown): value is PageLike<T> {
+  return Boolean(value && typeof value === 'object' && Array.isArray((value as PageLike<T>).content))
+}
+
 export function unwrapResponse<T>(response: ApiResponse<T> | T, allowFailure = false): T {
   if (response && typeof response === 'object' && 'success' in response) {
     const apiResponse = response as ApiResponse<T>
@@ -24,8 +32,14 @@ export function unwrapResponse<T>(response: ApiResponse<T> | T, allowFailure = f
 }
 export function unwrapArrayResponse<T>(data: ApiResponse<T[]> | T[], allowFailure = false): T[] {
   try {
-    const unwrapped = unwrapResponse(data, allowFailure)
-    return Array.isArray(unwrapped) ? unwrapped : []
+    const unwrapped = unwrapResponse<unknown>(data as unknown as ApiResponse<unknown>, allowFailure)
+    if (Array.isArray(unwrapped)) {
+      return unwrapped
+    }
+    if (isPageLike<T>(unwrapped)) {
+      return unwrapped.content ?? []
+    }
+    return []
   } catch (error) {
     if (allowFailure) {
       return []
@@ -33,4 +47,3 @@ export function unwrapArrayResponse<T>(data: ApiResponse<T[]> | T[], allowFailur
     throw error
   }
 }
-

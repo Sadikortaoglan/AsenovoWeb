@@ -1,6 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { handleApiError, ApiErrorType } from './api-error-handler'
-import { resolveApiBaseUrl } from './api-base-url'
+import { resolveApiBaseUrl, resolveAuthApiBaseUrl } from './api-base-url'
 import {
   detectTenantFromHostname,
   getAccessTokenKey,
@@ -10,6 +10,7 @@ import {
 import { resolveRoleFromAuthSource } from './roles'
 
 const API_BASE_URL = resolveApiBaseUrl()
+const AUTH_API_BASE_URL = resolveAuthApiBaseUrl()
 
 type UiErrorCode = 'TENANT_NOT_FOUND' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'RATE_LIMIT' | 'GENERIC'
 
@@ -226,7 +227,7 @@ apiClient.interceptors.response.use(
       try {
         console.log('🔄 REFRESH TOKEN TRIGGERED', { statusCode: responseStatus, url: originalRequest?.url })
 
-        const refreshUrl = `${API_BASE_URL}/auth/refresh`
+        const refreshUrl = `${AUTH_API_BASE_URL}/auth/refresh`
         
         const response = await axios.post(refreshUrl, { refreshToken }, {
           headers: {

@@ -1,0 +1,330 @@
+{
+  "info": {
+    "name": "Elevator CRUD QA",
+    "_postman_id": "d2f5b6de-6ea6-4ea9-a72f-f7806de4fbf6",
+    "description": "CRUD coverage for the Elevator module. The current backend controller returns 200 OK for create and delete, and update expects a full ElevatorDto body. For tenant isolation, run this collection once per tenant environment and set `forbiddenIdentityNumber` to the other tenant's created identity number before executing the list request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api"
+    },
+    {
+      "key": "authToken",
+      "value": ""
+    },
+    {
+      "key": "elevatorId",
+      "value": ""
+    },
+    {
+      "key": "identityNumber",
+      "value": "QA-POSTMAN-001"
+    },
+    {
+      "key": "buildingName",
+      "value": "QA Building"
+    },
+    {
+      "key": "address",
+      "value": "QA Address"
+    },
+    {
+      "key": "elevatorNumber",
+      "value": "E-001"
+    },
+    {
+      "key": "floorCount",
+      "value": "10"
+    },
+    {
+      "key": "capacity",
+      "value": "630"
+    },
+    {
+      "key": "speed",
+      "value": "1.6"
+    },
+    {
+      "key": "machineBrand",
+      "value": "Otis"
+    },
+    {
+      "key": "installationYear",
+      "value": "2022"
+    },
+    {
+      "key": "inspectionDate",
+      "value": "2026-01-15"
+    },
+    {
+      "key": "labelDate",
+      "value": "2026-01-15"
+    },
+    {
+      "key": "expiryDate",
+      "value": "2027-01-15"
+    },
+    {
+      "key": "updatedBuildingName",
+      "value": "Updated QA Building"
+    },
+    {
+      "key": "updatedFloorCount",
+      "value": "12"
+    },
+    {
+      "key": "updatedMachineBrand",
+      "value": "Kone"
+    },
+    {
+      "key": "forbiddenIdentityNumber",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Create Elevator",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identityNumber\": \"{{identityNumber}}\",\n  \"buildingName\": \"{{buildingName}}\",\n  \"address\": \"{{address}}\",\n  \"elevatorNumber\": \"{{elevatorNumber}}\",\n  \"floorCount\": {{floorCount}},\n  \"capacity\": {{capacity}},\n  \"speed\": {{speed}},\n  \"technicalNotes\": \"QA Postman CRUD test record\",\n  \"driveType\": \"TRACTION\",\n  \"machineBrand\": \"{{machineBrand}}\",\n  \"doorType\": \"AUTOMATIC\",\n  \"installationYear\": {{installationYear}},\n  \"serialNumber\": \"SN-{{identityNumber}}\",\n  \"controlSystem\": \"MICROPROCESSOR\",\n  \"rope\": \"8x19\",\n  \"modernization\": \"NONE\",\n  \"inspectionDate\": \"{{inspectionDate}}\",\n  \"labelDate\": \"{{labelDate}}\",\n  \"labelType\": \"GREEN\",\n  \"expiryDate\": \"{{expiryDate}}\",\n  \"managerName\": \"QA Manager\",\n  \"managerTcIdentityNo\": \"12345678901\",\n  \"managerPhone\": \"05551234567\",\n  \"managerEmail\": \"qa.manager@example.test\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/elevators",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "elevators"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('Create returns 200 or 201', function () {",
+              "  pm.expect([200, 201]).to.include(pm.response.code);",
+              "});",
+              "pm.test('Create succeeded and returned id', function () {",
+              "  pm.expect(body.success).to.eql(true);",
+              "  pm.expect(body.data.id).to.exist;",
+              "});",
+              "pm.collectionVariables.set('elevatorId', String(body.data.id));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Elevator",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/elevators/{{elevatorId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "elevators",
+            "{{elevatorId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('Get returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Get response matches created elevator', function () {",
+              "  pm.expect(body.success).to.eql(true);",
+              "  pm.expect(String(body.data.id)).to.eql(pm.collectionVariables.get('elevatorId'));",
+              "  pm.expect(body.data.identityNumber).to.eql(pm.collectionVariables.get('identityNumber'));",
+              "  pm.expect(body.data.buildingName).to.eql(pm.collectionVariables.get('buildingName'));",
+              "  pm.expect(body.data.floorCount).to.eql(Number(pm.collectionVariables.get('floorCount')));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List Elevators",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/elevators?page=0&size=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "elevators"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "size",
+              "value": "10"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "const createdIdentity = pm.collectionVariables.get('identityNumber');",
+              "const forbiddenIdentity = pm.collectionVariables.get('forbiddenIdentityNumber');",
+              "pm.test('List returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('List contains created elevator', function () {",
+              "  pm.expect(body.success).to.eql(true);",
+              "  pm.expect(Array.isArray(body.data)).to.eql(true);",
+              "  pm.expect(body.data.some(item => item.identityNumber === createdIdentity)).to.eql(true);",
+              "});",
+              "if (forbiddenIdentity) {",
+              "  pm.test('List does not expose foreign tenant elevator', function () {",
+              "    pm.expect(body.data.every(item => item.identityNumber !== forbiddenIdentity)).to.eql(true);",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update Elevator",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identityNumber\": \"{{identityNumber}}\",\n  \"buildingName\": \"{{updatedBuildingName}}\",\n  \"address\": \"{{address}}\",\n  \"elevatorNumber\": \"{{elevatorNumber}}\",\n  \"floorCount\": {{updatedFloorCount}},\n  \"capacity\": {{capacity}},\n  \"speed\": {{speed}},\n  \"technicalNotes\": \"QA Postman CRUD test record updated\",\n  \"driveType\": \"TRACTION\",\n  \"machineBrand\": \"{{updatedMachineBrand}}\",\n  \"doorType\": \"AUTOMATIC\",\n  \"installationYear\": {{installationYear}},\n  \"serialNumber\": \"SN-{{identityNumber}}\",\n  \"controlSystem\": \"MICROPROCESSOR\",\n  \"rope\": \"8x19\",\n  \"modernization\": \"NONE\",\n  \"inspectionDate\": \"{{inspectionDate}}\",\n  \"labelDate\": \"{{labelDate}}\",\n  \"labelType\": \"GREEN\",\n  \"expiryDate\": \"{{expiryDate}}\",\n  \"managerName\": \"QA Manager\",\n  \"managerTcIdentityNo\": \"12345678901\",\n  \"managerPhone\": \"05551234567\",\n  \"managerEmail\": \"qa.manager@example.test\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/elevators/{{elevatorId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "elevators",
+            "{{elevatorId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('Update returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Update returns changed fields', function () {",
+              "  pm.expect(body.success).to.eql(true);",
+              "  pm.expect(body.data.buildingName).to.eql(pm.collectionVariables.get('updatedBuildingName'));",
+              "  pm.expect(body.data.floorCount).to.eql(Number(pm.collectionVariables.get('updatedFloorCount')));",
+              "  pm.expect(body.data.machineBrand).to.eql(pm.collectionVariables.get('updatedMachineBrand'));",
+              "});",
+              "pm.collectionVariables.set('buildingName', pm.collectionVariables.get('updatedBuildingName'));",
+              "pm.collectionVariables.set('floorCount', pm.collectionVariables.get('updatedFloorCount'));",
+              "pm.collectionVariables.set('machineBrand', pm.collectionVariables.get('updatedMachineBrand'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete Elevator",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/elevators/{{elevatorId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "elevators",
+            "{{elevatorId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Delete returns 200 or 204', function () {",
+              "  pm.expect([200, 204]).to.include(pm.response.code);",
+              "});",
+              "if (pm.response.code !== 204) {",
+              "  const body = pm.response.json();",
+              "  pm.test('Delete success envelope is true', function () {",
+              "    pm.expect(body.success).to.eql(true);",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

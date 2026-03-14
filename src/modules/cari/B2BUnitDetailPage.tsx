@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -206,12 +206,14 @@ function renderPanel(
 export function B2BUnitDetailPage() {
   const { hasAnyRole } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { id } = useParams<{ id: string }>()
   const parsedId = Number(id)
   const isValidId = Number.isFinite(parsedId) && parsedId > 0
   const canUseFinancePanels = hasAnyRole(['STAFF_USER'])
   const canManageFacilities = hasAnyRole(['STAFF_USER'])
   const canManageElevators = hasAnyRole(['STAFF_USER'])
+  const requestedPanel = searchParams.get('panel')
 
   const detailQuery = useQuery({
     queryKey: ['b2bunits', 'detail', parsedId],
@@ -294,6 +296,18 @@ export function B2BUnitDetailPage() {
       }
     }
   }, [activeMenu, canManageElevators, canManageFacilities, canUseFinancePanels, visibleMenus])
+
+  useEffect(() => {
+    if (requestedPanel !== 'salesInvoice' || !canUseFinancePanels) return
+
+    setInvoiceExpanded(true)
+    setActiveMenu('salesInvoice')
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('panel')
+      return next
+    }, { replace: true })
+  }, [canUseFinancePanels, requestedPanel, setSearchParams])
 
   const isInvoiceChildActive = activeMenu === 'purchaseInvoice' || activeMenu === 'salesInvoice'
   const isAccountChildActive = activeMenu === 'manualDebit' || activeMenu === 'manualCredit'
