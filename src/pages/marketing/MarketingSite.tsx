@@ -69,10 +69,12 @@ type MarketingFormResponse = {
     status?: string
     username?: string
     temporaryPassword?: string
+    showTemporaryPassword?: boolean
     provisioningError?: string
   } | null
   errors?: Record<string, string | string[]> | null
 }
+type TrialResultData = NonNullable<MarketingFormResponse['data']>
 
 type MarketingFieldErrors = Record<string, string>
 
@@ -101,6 +103,25 @@ function mapFieldErrors(errors?: MarketingFormResponse['errors']): MarketingFiel
 
     return acc
   }, {})
+}
+
+function mergeTrialResult(previous: TrialResultData | null, next: TrialResultData | null): TrialResultData | null {
+  if (!next) return previous
+  if (!previous) return next
+
+  return {
+    ...previous,
+    ...next,
+    existingDemo: next.existingDemo ?? previous.existingDemo,
+    accessEmailSent: next.accessEmailSent ?? previous.accessEmailSent,
+    emailError: next.emailError ?? previous.emailError,
+    loginUrl: next.loginUrl ?? previous.loginUrl,
+    temporaryPassword: next.temporaryPassword ?? previous.temporaryPassword,
+    showTemporaryPassword: next.showTemporaryPassword ?? previous.showTemporaryPassword,
+    tenantSlug: next.tenantSlug ?? previous.tenantSlug,
+    status: next.status ?? previous.status,
+    expiresAt: next.expiresAt ?? previous.expiresAt,
+  }
 }
 
 function useMarketingSeo(title: string, description: string) {
@@ -294,7 +315,7 @@ function MarketingPage({ focusSection, pageTitle }: MarketingPageProps) {
   const [contactFieldErrors, setContactFieldErrors] = useState<MarketingFieldErrors>({})
   const [trialStatus, setTrialStatus] = useState<SubmitStatus>('idle')
   const [trialFeedback, setTrialFeedback] = useState<string>('')
-  const [trialResult, setTrialResult] = useState<MarketingFormResponse['data']>(null)
+  const [trialResult, setTrialResult] = useState<TrialResultData | null>(null)
   const [trialRequestToken, setTrialRequestToken] = useState<string | null>(null)
   const [planStatus, setPlanStatus] = useState<SubmitStatus>('idle')
   const [planFeedback, setPlanFeedback] = useState<string>('')
@@ -441,7 +462,7 @@ function MarketingPage({ focusSection, pageTitle }: MarketingPageProps) {
       const response = await submitMarketingForm('/trial-request', demoForm)
       const requestToken = response?.data?.requestToken || null
       setTrialFeedback(response?.message || 'Demo ortamınız hazırlanıyor.')
-      setTrialResult(response?.data || null)
+      setTrialResult((previous) => mergeTrialResult(previous, response?.data ?? null))
       setTrialRequestToken(requestToken)
       setTrialModalOpen(false)
       scrollToSection('demo')
@@ -473,7 +494,7 @@ function MarketingPage({ focusSection, pageTitle }: MarketingPageProps) {
           console.warn('Trial onboarding email delivery failed:', nextResult.emailError)
         }
 
-        setTrialResult(nextResult)
+        setTrialResult((previous) => mergeTrialResult(previous, nextResult ?? null))
 
         if (nextStatus === 'READY') {
           setTrialStatus('success')
@@ -1087,9 +1108,13 @@ function MarketingPage({ focusSection, pageTitle }: MarketingPageProps) {
               >
                 Kurulumu Başlat
               </button>
-              <a href={`mailto:${SUPPORT_EMAIL}`} className="rounded-full border border-white/20 px-5 py-3 font-semibold text-white transition hover:bg-white/10">
+              <button
+                type="button"
+                onClick={() => scrollToSection('contact')}
+                className="rounded-full border border-white/20 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+              >
                 Ekiple Görüş
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -1111,9 +1136,13 @@ function MarketingPage({ focusSection, pageTitle }: MarketingPageProps) {
               <FooterLink to="/paketler">Features</FooterLink>
               <FooterLink to="/fiyatlandirma">Pricing</FooterLink>
               <FooterLink to="/iletisim">Contact</FooterLink>
-              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-slate-300 transition hover:text-white">
+              <button
+                type="button"
+                onClick={() => scrollToSection('contact')}
+                className="text-left text-slate-300 transition hover:text-white"
+              >
                 Demo ve Kurulum
-              </a>
+              </button>
             </div>
           </div>
 
@@ -1513,6 +1542,7 @@ function TrialResultCard({
   status,
   username,
   temporaryPassword,
+  showTemporaryPassword,
 }: {
   existingDemo?: boolean
   accessEmailSent?: boolean
@@ -1523,20 +1553,24 @@ function TrialResultCard({
   status?: string
   username?: string
   temporaryPassword?: string
+  showTemporaryPassword?: boolean
 }) {
+  const shouldShowTemporaryPassword = showTemporaryPassword === true
+
   if (!loginUrl && !tenantSlug && !tenantDatabase && !expiresAt && !status && !username && !temporaryPassword && !existingDemo && !accessEmailSent) return null
 
   return (
     <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-950">
       <div className="font-semibold">Demo ortamı yanıtı alındı</div>
-      {existingDemo ? <div className="mt-2">Aktif demonuz bulundu, yeni demo açılmadı.</div> : null}
+      {existingDemo ? <div className="mt-2">Aktif demo hesabiniz bulundu. Yeni demo acilmadi.</div> : null}
       {status ? <div className="mt-2">Durum: <span className="font-semibold">{status}</span></div> : null}
       {tenantSlug ? <div className="mt-2">Tenant: <span className="font-semibold">{tenantSlug}</span></div> : null}
       {tenantDatabase ? <div className="mt-1">Veritabanı: <span className="font-semibold">{tenantDatabase}</span></div> : null}
       {username ? <div className="mt-1">Kullanıcı adı: <span className="font-semibold">{username}</span></div> : null}
-      {temporaryPassword ? <div className="mt-1">Geçici şifre: <span className="font-semibold">{temporaryPassword}</span></div> : null}
+      {shouldShowTemporaryPassword && temporaryPassword ? <div className="mt-1">Geçici şifre: <span className="font-semibold">{temporaryPassword}</span></div> : null}
       {accessEmailSent ? <div className="mt-1">Erişim bilgileri mailinize gönderildi.</div> : null}
       {accessEmailSent === false ? <div className="mt-1 font-medium text-amber-700">E-posta gonderilemedi. Erisim bilgilerinizi bu ekrandan kullanin.</div> : null}
+      {showTemporaryPassword === false ? <div className="mt-1">Sifrenizi mailinizden alin.</div> : null}
       {expiresAt ? <div className="mt-1">Bitiş: <span className="font-semibold">{new Date(expiresAt).toLocaleString('tr-TR')}</span></div> : null}
       {loginUrl ? (
         <a
@@ -1582,7 +1616,7 @@ function TrialRequestDialog({
   onSubmit: (event: FormEvent) => Promise<void>
   status: SubmitStatus
   feedback: string
-  result: MarketingFormResponse['data']
+  result: TrialResultData | null
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1624,6 +1658,7 @@ function TrialRequestDialog({
               status={result.status}
               username={result.username}
               temporaryPassword={result.temporaryPassword}
+              showTemporaryPassword={result.showTemporaryPassword}
             />
           ) : null}
 
@@ -1648,13 +1683,14 @@ function TrialReadyScreen({
   onReset,
 }: {
   feedback: string
-  result: NonNullable<MarketingFormResponse['data']>
+  result: TrialResultData
   onReset: () => void
 }) {
   const isExistingDemo = result.existingDemo === true
+  const shouldShowTemporaryPassword = result.showTemporaryPassword === true
   const heading = isExistingDemo ? 'Aktif demo hesabiniz bulundu' : 'Demo ortamınız kullanıma açıldı.'
   const description = isExistingDemo
-    ? 'Yeni demo acilmadi. Mevcut demo erisim bilgileriniz yenilendi.'
+    ? 'Yeni demo acilmadi. Mevcut demo erisim bilgileriniz kullanıma hazır.'
     : feedback || 'Örnek veriler yüklendi. Aşağıdaki bilgilerle doğrudan giriş yapabilir veya bağlantıyı ekibinizle paylaşabilirsiniz.'
   const ctaLabel = isExistingDemo ? 'Mevcut Demo Ortamina Git' : 'Demo Ortamına Git'
 
@@ -1668,7 +1704,7 @@ function TrialReadyScreen({
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Tenant</div>
           <div className="mt-2 text-base font-semibold text-slate-950">{result.tenantSlug || 'Hazırlandı'}</div>
-          {result.existingDemo ? <div className="mt-3 text-sm text-slate-600">Aktif demonuz bulundu, yeni demo açılmadı.</div> : null}
+          {result.existingDemo ? <div className="mt-3 text-sm text-slate-600">Aktif demo hesabiniz bulundu. Yeni demo acilmadi.</div> : null}
           {result.tenantDatabase ? <div className="mt-2 text-sm text-slate-600">Veritabanı: <span className="font-semibold text-slate-950">{result.tenantDatabase}</span></div> : null}
           {result.status ? <div className="mt-3 text-sm text-slate-600">Durum: <span className="font-semibold text-slate-950">{result.status}</span></div> : null}
           {result.expiresAt ? (
@@ -1681,15 +1717,16 @@ function TrialReadyScreen({
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Giriş Bilgileri</div>
           {result.username ? <div className="mt-2 text-sm text-slate-600">Kullanıcı adı: <span className="font-semibold text-slate-950">{result.username}</span></div> : null}
-          {result.temporaryPassword ? <div className="mt-2 text-sm text-slate-600">Geçici şifre: <span className="font-semibold text-slate-950">{result.temporaryPassword}</span></div> : null}
+          {shouldShowTemporaryPassword && result.temporaryPassword ? <div className="mt-2 text-sm text-slate-600">Geçici şifre: <span className="font-semibold text-slate-950">{result.temporaryPassword}</span></div> : null}
           {result.accessEmailSent ? (
             <div className="mt-2 text-sm text-slate-600">Erişim bilgileri mailinize gönderildi.</div>
           ) : result.accessEmailSent === false ? (
             <div className="mt-2 text-sm font-medium text-amber-700">E-posta gonderilemedi. Erisim bilgilerinizi bu ekrandan kullanin.</div>
-          ) : !result.temporaryPassword ? (
-            <div className="mt-2 text-sm text-slate-600">Giriş bilgileri e-posta adresinize de gönderildi.</div>
+          ) : result.showTemporaryPassword === false ? (
+            <div className="mt-2 text-sm text-slate-600">Sifrenizi mailinizden alin.</div>
           ) : null}
-          {result.temporaryPassword && result.loginUrl ? (
+          {result.emailError ? <div className="mt-2 text-xs text-amber-700">{result.emailError}</div> : null}
+          {shouldShowTemporaryPassword && result.temporaryPassword && result.loginUrl ? (
             <div className="mt-2 text-sm text-slate-600">Giriş yapmak için aşağıdaki butonu kullanın.</div>
           ) : null}
         </div>

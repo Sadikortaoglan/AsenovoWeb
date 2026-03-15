@@ -27,6 +27,8 @@ export default defineConfig(({ mode }) => {
         'tenant2.asenovo.local',
         'tenant3.asenovo.local',
         '.asenovo.local',
+        'lvh.me',
+        '.lvh.me',
         'localhost',
         '127.0.0.1',
       ],
