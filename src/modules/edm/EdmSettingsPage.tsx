@@ -31,9 +31,9 @@ export function EdmSettingsPage() {
   })
 
   return (
-    <div className="grid grid-cols-3 gap-4">
-      <Card className="col-span-2">
-        <CardHeader className="flex flex-row items-center justify-between">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <Card className="xl:col-span-2">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>EDM API Ayarları</CardTitle>
           <Button variant="outline" onClick={() => navigate('/edm/invoices/incoming')}>Listeye Dön</Button>
         </CardHeader>
@@ -50,7 +50,7 @@ export function EdmSettingsPage() {
             <Label>Email</Label>
             <Input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>E-Arşiv Seri</Label>
               <Input value={form.invoiceSeriesEarchive || ''} onChange={(e) => setForm({ ...form, invoiceSeriesEarchive: e.target.value })} />

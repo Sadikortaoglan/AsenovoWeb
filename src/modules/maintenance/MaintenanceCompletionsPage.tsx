@@ -23,10 +23,10 @@ export function MaintenanceCompletionsPage() {
         <CardTitle>Tamamlanan Bakımlar</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <Input type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} />
           <Input type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} />
-          <Button variant="outline" onClick={() => setPage(0)}>Filtrele</Button>
+          <Button className="w-full lg:w-auto" variant="outline" onClick={() => setPage(0)}>Filtrele</Button>
         </div>
 
         <PaginatedTable

@@ -38,6 +38,7 @@
 
 .topbar__text {
   min-width: 0;
+  flex: 1;
 }
 
 .topbar__title {
@@ -53,6 +54,9 @@
   font-size: 14px;
   line-height: 1.35;
   color: var(--header-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topbar__right {
@@ -181,6 +185,20 @@
   }
 }
 
+@media (max-width: 1023px) {
+  .topbar {
+    padding: 8px 12px;
+  }
+
+  .topbar__title {
+    font-size: 20px;
+  }
+
+  .topbar__action-label {
+    max-width: 96px;
+  }
+}
+
 @media (max-width: 767px) {
   .topbar {
     flex-direction: column;
@@ -195,11 +213,11 @@
   }
 
   .topbar__title {
-    font-size: 22px;
+    font-size: 18px;
   }
 
   .topbar__subtitle {
-    margin-top: 1px;
+    display: none;
   }
 
   .topbar__right {
@@ -209,5 +227,11 @@
   .topbar__action-button {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (max-width: 479px) {
+  .topbar__action-label {
+    display: none;
   }
 }
