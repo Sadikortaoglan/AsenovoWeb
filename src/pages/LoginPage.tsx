@@ -26,8 +26,17 @@ export function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
 
+    const formData = new FormData(e.currentTarget as HTMLFormElement)
+    const submittedUsername = String(formData.get('username') || username).trim()
+    const submittedPassword = String(formData.get('password') || password)
+
+    // Keep controlled state aligned with the actual submitted DOM values,
+    // including password manager/autofill updates that may bypass React state.
+    setUsername(submittedUsername)
+    setPassword(submittedPassword)
+
     try {
-      await login({ username: username.trim(), password })
+      await login({ username: submittedUsername, password: submittedPassword })
       toast({
         title: 'Giriş Başarılı',
         description: 'Yönetim paneline yönlendiriliyorsunuz...',
@@ -85,10 +94,12 @@ export function LoginPage() {
                 </Label>
                 <Input
                   id="username"
+                  name="username"
                   type="text"
                   placeholder="Kullanıcı adınızı girin"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
                   required
                   disabled={isLoading}
                   className="relative z-10 border-gray-600 bg-[#1a1f3a] text-white placeholder:text-gray-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50 focus:ring-offset-0 focus:ring-offset-[#0f1629] transition-all duration-200"
@@ -100,10 +111,12 @@ export function LoginPage() {
                 </Label>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
                   placeholder="Şifrenizi girin"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   required
                   disabled={isLoading}
                   className="relative z-10 border-gray-600 bg-[#1a1f3a] text-white placeholder:text-gray-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50 focus:ring-offset-0 focus:ring-offset-[#0f1629] transition-all duration-200"
