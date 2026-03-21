@@ -55,17 +55,17 @@ export function StatusDetectionReportsPage() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Status Detection Reports</CardTitle>
         <Button onClick={() => { setEditing(null); setForm(initialForm); setOpen(true) }}>Yeni Rapor</Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           <Input placeholder="Bina" value={building} onChange={(e) => setBuilding(e.target.value)} />
           <Input placeholder="Durum" value={status} onChange={(e) => setStatus(e.target.value)} />
-          <Button variant="outline" onClick={() => setPage(0)}>Filtrele</Button>
+          <Button className="w-full lg:w-auto" variant="outline" onClick={() => setPage(0)}>Filtrele</Button>
         </div>
 
         <PaginatedTable
@@ -78,7 +78,7 @@ export function StatusDetectionReportsPage() {
             { key: 'buildingName', header: 'Bina', render: (r) => r.buildingName },
             { key: 'elevatorName', header: 'Asansör', render: (r) => r.elevatorName },
             { key: 'status', header: 'Durum', render: (r) => r.status || '-' },
-            { key: 'actions', header: 'İşlem', render: (r) => <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => { setEditing(r); setForm(r); setOpen(true) }}>Düzenle</Button><Button size="sm" variant="destructive" onClick={() => r.id && deleteMutation.mutate(r.id)}>Sil</Button></div> },
+            { key: 'actions', header: 'İşlem', render: (r) => <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => { setEditing(r); setForm(r); setOpen(true) }}>Düzenle</Button><Button size="sm" variant="destructive" onClick={() => r.id && deleteMutation.mutate(r.id)}>Sil</Button></div> },
           ]}
         />
       </CardContent>

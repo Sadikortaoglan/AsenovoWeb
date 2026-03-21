@@ -24,13 +24,14 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Search, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Plus, Search, AlertTriangle, CheckCircle2, Download, Upload } from 'lucide-react'
 import { formatDateShort, cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MaintenanceFormDialog } from '@/components/MaintenanceFormDialog'
 import { ElevatorQRValidationDialog } from '@/components/maintenance/ElevatorQRValidationDialog'
 import { ActionButtons } from '@/components/ui/action-buttons'
 import { useAuth } from '@/contexts/AuthContext'
+import { PageHeaderActionGroup } from '@/components/shared/PageHeaderActionGroup'
 
 export function ElevatorsPage() {
   const { hasAnyRole } = useAuth()
@@ -219,50 +220,65 @@ export function ElevatorsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
           <h1 className="text-3xl font-bold">Asansörler</h1>
           <p className="text-muted-foreground">Tüm asansörlerin listesi</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canImportElevators ? (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx"
-                className="hidden"
-                onChange={handleImportFileChange}
-              />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx"
+          className="hidden"
+          onChange={handleImportFileChange}
+        />
+
+        <PageHeaderActionGroup
+          tertiaryAction={
+            canImportElevators ? (
               <Button
-                variant="outline"
+                variant="ghost"
+                className="w-full lg:w-auto"
                 onClick={() => templateMutation.mutate()}
                 disabled={templateMutation.isPending}
               >
+                <Download className="mr-2 h-4 w-4" />
                 {templateMutation.isPending ? 'İndiriliyor...' : 'Örnek Excel'}
               </Button>
-              <Button variant="outline" onClick={triggerImportPicker} disabled={importMutation.isPending}>
+            ) : undefined
+          }
+          secondaryAction={
+            canImportElevators ? (
+              <Button
+                variant="outline"
+                className="w-full lg:w-auto"
+                onClick={triggerImportPicker}
+                disabled={importMutation.isPending}
+              >
+                <Upload className="mr-2 h-4 w-4" />
                 {importMutation.isPending ? 'Yükleniyor...' : 'Excel ile Yükle'}
               </Button>
-            </>
-          ) : null}
-
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setSelectedElevator(null)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Yeni Asansör Ekle
-              </Button>
-            </DialogTrigger>
-            <ElevatorFormDialog
-              elevator={selectedElevator}
-              onClose={() => setIsDialogOpen(false)}
-              onSuccess={() => {
-                setIsDialogOpen(false)
-              }}
-            />
-          </Dialog>
-        </div>
+            ) : undefined
+          }
+          primaryAction={
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full lg:w-auto" onClick={() => setSelectedElevator(null)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Yeni Asansör Ekle
+                </Button>
+              </DialogTrigger>
+              <ElevatorFormDialog
+                elevator={selectedElevator}
+                onClose={() => setIsDialogOpen(false)}
+                onSuccess={() => {
+                  setIsDialogOpen(false)
+                }}
+              />
+            </Dialog>
+          }
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">

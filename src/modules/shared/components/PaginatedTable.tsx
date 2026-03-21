@@ -323,34 +323,34 @@ export function PaginatedTable<T>({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       <div className="rounded-lg border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+        <div className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-sm text-slate-700 font-medium">Sayfa {pageIndex + 1} / {totalPages}</span>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={handleCopy} disabled={exportDisabled}>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <Button variant="outline" size="sm" onClick={handleCopy} disabled={exportDisabled} className="w-full sm:w-auto">
               <ClipboardCopy className="h-4 w-4 mr-1" />
               Kopyala
             </Button>
-            <Button variant="outline" size="sm" onClick={() => void handleExcel()} disabled={exportDisabled}>
+            <Button variant="outline" size="sm" onClick={() => void handleExcel()} disabled={exportDisabled} className="w-full sm:w-auto">
               <FileSpreadsheet className="h-4 w-4 mr-1" />
               Excel
             </Button>
-            <Button variant="outline" size="sm" onClick={() => void handlePdf()} disabled={exportDisabled}>
+            <Button variant="outline" size="sm" onClick={() => void handlePdf()} disabled={exportDisabled} className="w-full sm:w-auto">
               <FileText className="h-4 w-4 mr-1" />
               PDF
             </Button>
-            <Button variant="outline" size="sm" onClick={() => void handleCsv()} disabled={exportDisabled}>
+            <Button variant="outline" size="sm" onClick={() => void handleCsv()} disabled={exportDisabled} className="w-full sm:w-auto">
               <FileText className="h-4 w-4 mr-1" />
               CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={handlePrint} disabled={exportDisabled}>
+            <Button variant="outline" size="sm" onClick={handlePrint} disabled={exportDisabled} className="w-full sm:w-auto">
               <Printer className="h-4 w-4 mr-1" />
               Yazdır
             </Button>
           </div>
         </div>
-        <Table>
+        <Table className="min-w-[720px]">
           <TableHeader>
             <TableRow>
               {columns.map((c) => (
@@ -392,7 +392,7 @@ export function PaginatedTable<T>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button
           variant="outline"
           size="sm"

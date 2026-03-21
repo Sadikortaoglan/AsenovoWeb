@@ -59,7 +59,7 @@ export function ElevatorLabelFormPage() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>{isEdit ? 'Etiket Düzenle' : 'Yeni Etiket'}</CardTitle>
         <Button variant="outline" onClick={() => navigate('/elevator-labels')}>Listeye Dön</Button>
       </CardHeader>
@@ -72,7 +72,7 @@ export function ElevatorLabelFormPage() {
           <Label>Etiket Adı</Label>
           <Input value={form.labelName} onChange={(e) => setForm({ ...form, labelName: e.target.value })} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Start At</Label>
             <Input type="datetime-local" value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} />

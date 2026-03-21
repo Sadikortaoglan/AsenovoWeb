@@ -25,15 +25,15 @@ export function EntityModal({
 }: EntityModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
         <div className="space-y-3">{children}</div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>İptal</Button>
-          <Button onClick={onSubmit} disabled={pending}>{pending ? 'Kaydediliyor...' : submitLabel}</Button>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)} disabled={pending}>İptal</Button>
+          <Button className="w-full sm:w-auto" onClick={onSubmit} disabled={pending}>{pending ? 'Kaydediliyor...' : submitLabel}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

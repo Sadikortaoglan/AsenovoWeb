@@ -258,28 +258,28 @@ export function TableResponsive<T extends Record<string, any>>({
   }
 
   const toolbar = (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+    <div className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
       <span className="text-sm text-slate-700 font-medium">
         Sayfa {pageIndex + 1} / {totalPages}
       </span>
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" onClick={handleCopy}>
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <Button size="sm" variant="outline" onClick={handleCopy} className="w-full sm:w-auto">
           <ClipboardCopy className="h-4 w-4 mr-1" />
           Kopyala
         </Button>
-        <Button size="sm" variant="outline" onClick={handleExcel}>
+        <Button size="sm" variant="outline" onClick={handleExcel} className="w-full sm:w-auto">
           <FileSpreadsheet className="h-4 w-4 mr-1" />
           Excel
         </Button>
-        <Button size="sm" variant="outline" onClick={handlePdf}>
+        <Button size="sm" variant="outline" onClick={handlePdf} className="w-full sm:w-auto">
           <FileText className="h-4 w-4 mr-1" />
           PDF
         </Button>
-        <Button size="sm" variant="outline" onClick={handleCsv}>
+        <Button size="sm" variant="outline" onClick={handleCsv} className="w-full sm:w-auto">
           <FileText className="h-4 w-4 mr-1" />
           CSV
         </Button>
-        <Button size="sm" variant="outline" onClick={handlePrint}>
+        <Button size="sm" variant="outline" onClick={handlePrint} className="w-full sm:w-auto">
           <Printer className="h-4 w-4 mr-1" />
           Yazdır
         </Button>
@@ -288,7 +288,7 @@ export function TableResponsive<T extends Record<string, any>>({
   )
 
   const pagination = (
-    <div className="flex items-center justify-end gap-2 px-3 py-2 border-t bg-muted/30">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-muted/30 px-3 py-2">
       <Button
         size="sm"
         variant="outline"
@@ -380,12 +380,12 @@ export function TableResponsive<T extends Record<string, any>>({
                 return (
                   <div key={column.key} className="flex flex-col space-y-1">
                     <span className="text-xs font-medium text-muted-foreground">{label}</span>
-                    <div className="text-sm">{value}</div>
+                    <div className="text-sm break-words">{value}</div>
                   </div>
                 )
               })}
               {actionColumns.length > 0 && (
-                <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-2">
                   {actionColumns.map((column) => (
                     <div key={column.key}>{column.render ? column.render(item) : null}</div>
                   ))}

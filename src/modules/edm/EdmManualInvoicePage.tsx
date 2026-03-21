@@ -39,12 +39,12 @@ export function EdmManualInvoicePage() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Fatura Kes (Manuel)</CardTitle>
         <Button variant="outline" onClick={() => navigate('/edm/invoices/outgoing')}>Listeye Dön</Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Fatura Tarihi</Label>
             <Input type="date" value={form.invoiceDate} onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })} />

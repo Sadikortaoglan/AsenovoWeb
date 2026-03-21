@@ -67,7 +67,7 @@ export function ProposalsPage() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Proposals</CardTitle>
         <Button onClick={() => setOpen(true)}>Yeni Proposal</Button>
       </CardHeader>
@@ -89,7 +89,7 @@ export function ProposalsPage() {
         {selected && (
           <div className="space-y-3 rounded-lg border p-4">
             <p className="text-sm font-medium">Seçili Teklif #{selected.id}</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
               <Input type="number" placeholder="Part ID" value={lineItem.partId || ''} onChange={(e) => setLineItem({ ...lineItem, partId: Number(e.target.value) })} />
               <Input type="number" placeholder="Adet" value={lineItem.quantity || ''} onChange={(e) => setLineItem({ ...lineItem, quantity: Number(e.target.value) })} />
               <Input type="number" placeholder="Birim Fiyat" value={lineItem.unitPrice || ''} onChange={(e) => setLineItem({ ...lineItem, unitPrice: Number(e.target.value) })} />
@@ -97,8 +97,8 @@ export function ProposalsPage() {
             <Button variant="outline" onClick={() => addItemMutation.mutate()}>Kalem Ekle</Button>
             <div className="space-y-2">
               {(selected.items || []).map((item) => (
-                <div key={item.id} className="flex items-center justify-between rounded border p-2 text-sm">
-                  <span>#{item.id} part:{item.partId} qty:{item.quantity} unit:{item.unitPrice} total:{item.totalPrice}</span>
+                <div key={item.id} className="flex flex-col gap-2 rounded border p-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <span className="break-words">#{item.id} part:{item.partId} qty:{item.quantity} unit:{item.unitPrice} total:{item.totalPrice}</span>
                   <Button size="sm" variant="destructive" onClick={() => selected.id && item.id && removeItemMutation.mutate({ proposalId: selected.id, itemId: item.id })}>Sil</Button>
                 </div>
               ))}

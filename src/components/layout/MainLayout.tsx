@@ -40,11 +40,11 @@ export function MainLayout() {
   }, [isDrawerOpen, isDesktop])
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen min-w-0 overflow-hidden">
       <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden w-full lg:w-auto">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden w-full lg:w-auto">
         <TopBar onMenuClick={() => setIsDrawerOpen(true)} />
-        <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6">
+        <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto bg-background p-3 sm:p-4 lg:p-6">
           <Outlet />
         </main>
       </div>

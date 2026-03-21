@@ -21,9 +21,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { Plus, Upload } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { getUserFriendlyErrorMessage } from '@/lib/api-error-handler'
 import { PaginatedTable } from '@/modules/shared/components/PaginatedTable'
+import { PageHeaderActionGroup } from '@/components/shared/PageHeaderActionGroup'
 import {
   facilitiesService,
   type Facility,
@@ -282,25 +284,41 @@ export function FacilitiesPage() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
-        <CardTitle>Tüm Tesisler(Binalar)</CardTitle>
-        <div className="flex flex-wrap items-center gap-2">
-          {canManageFacilities ? (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx"
-                className="hidden"
-                onChange={handleImportFileChange}
-              />
-              <Button variant="outline" onClick={triggerFilePicker} disabled={importMutation.isPending}>
-                {importMutation.isPending ? 'Yükleniyor...' : 'Excel’den Yükle'}
-              </Button>
-              <Button onClick={() => navigate('/facilities/new')}>Tesis(Bina) Ekle</Button>
-            </>
-          ) : null}
+      <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
+          <CardTitle>Tüm Tesisler(Binalar)</CardTitle>
+          <p className="text-sm text-muted-foreground">Tesis kayıtlarını görüntüleyin ve yönetin.</p>
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx"
+          className="hidden"
+          onChange={handleImportFileChange}
+        />
+
+        {canManageFacilities ? (
+          <PageHeaderActionGroup
+            secondaryAction={
+              <Button
+                variant="outline"
+                className="w-full lg:w-auto"
+                onClick={triggerFilePicker}
+                disabled={importMutation.isPending}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {importMutation.isPending ? 'Yükleniyor...' : 'Excel ile Yükle'}
+              </Button>
+            }
+            primaryAction={
+              <Button className="w-full lg:w-auto" onClick={() => navigate('/facilities/new')}>
+                <Plus className="mr-2 h-4 w-4" />
+                Yeni Tesis Ekle
+              </Button>
+            }
+          />
+        ) : null}
       </CardHeader>
 
       <CardContent className="space-y-4">

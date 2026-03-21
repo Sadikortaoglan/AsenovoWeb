@@ -76,18 +76,18 @@ export function PaymentTransactionsPage() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Payment Transactions</CardTitle>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setAccountsOpen(true)}>Cash/Bank Hesapları</Button>
           <Button onClick={() => { setEditing(null); setForm(initialForm); setOpen(true) }}>Yeni Ödeme</Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <Input type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} />
           <Input type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} />
-          <Button variant="outline" onClick={() => setPage(0)}>Filtrele</Button>
+          <Button className="w-full lg:w-auto" variant="outline" onClick={() => setPage(0)}>Filtrele</Button>
         </div>
 
         <PaginatedTable
@@ -100,7 +100,7 @@ export function PaymentTransactionsPage() {
             { key: 'amount', header: 'Tutar', render: (r) => r.amount },
             { key: 'paymentDate', header: 'Tarih', render: (r) => r.paymentDate },
             { key: 'description', header: 'Açıklama', render: (r) => r.description || '-' },
-            { key: 'actions', header: 'İşlem', render: (r) => <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => { setEditing(r); setForm(r); setOpen(true) }}>Düzenle</Button><Button size="sm" variant="destructive" onClick={() => r.id && deleteMutation.mutate(r.id)}>Sil</Button></div> },
+            { key: 'actions', header: 'İşlem', render: (r) => <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => { setEditing(r); setForm(r); setOpen(true) }}>Düzenle</Button><Button size="sm" variant="destructive" onClick={() => r.id && deleteMutation.mutate(r.id)}>Sil</Button></div> },
           ]}
         />
       </CardContent>
@@ -121,16 +121,16 @@ export function PaymentTransactionsPage() {
       </EntityModal>
 
       <EntityModal open={accountsOpen} onOpenChange={setAccountsOpen} title="Cash/Bank Hesapları" onSubmit={() => setAccountsOpen(false)} submitLabel="Kapat">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="space-y-2">
             <Label>Cash Accounts</Label>
             {(cashQuery.data || []).map((x) => (
-              <div key={x.id} className="flex items-center justify-between rounded border p-2 text-sm">
-                <span>{x.id} - {x.name}</span>
+              <div key={x.id} className="flex flex-col gap-2 rounded border p-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <span className="break-words">{x.id} - {x.name}</span>
                 <Button size="sm" variant="destructive" onClick={() => x.id && paymentTransactionsService.deleteCashAccount(x.id).then(() => queryClient.invalidateQueries({ queryKey: ['payment-cash-accounts'] }))}>Sil</Button>
               </div>
             ))}
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input value={cashName} onChange={(e) => setCashName(e.target.value)} placeholder="Yeni cash hesap adı" />
               <Button onClick={() => saveCashMutation.mutate()}>Ekle</Button>
             </div>
@@ -138,12 +138,12 @@ export function PaymentTransactionsPage() {
           <div className="space-y-2">
             <Label>Bank Accounts</Label>
             {(bankQuery.data || []).map((x) => (
-              <div key={x.id} className="flex items-center justify-between rounded border p-2 text-sm">
-                <span>{x.id} - {x.name}</span>
+              <div key={x.id} className="flex flex-col gap-2 rounded border p-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <span className="break-words">{x.id} - {x.name}</span>
                 <Button size="sm" variant="destructive" onClick={() => x.id && paymentTransactionsService.deleteBankAccount(x.id).then(() => queryClient.invalidateQueries({ queryKey: ['payment-bank-accounts'] }))}>Sil</Button>
               </div>
             ))}
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Yeni bank hesap adı" />
               <Button onClick={() => saveBankMutation.mutate()}>Ekle</Button>
             </div>
