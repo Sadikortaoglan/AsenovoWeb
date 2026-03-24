@@ -1136,7 +1136,7 @@ export function B2BUnitDetailFilterPanel({ b2bUnitId }: B2BUnitDetailPanelProps)
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
         <div className="space-y-2">
           <Label htmlFor="b2bunit-transactions-start-date">Başlangıç Tarihi</Label>
           <Input
@@ -1155,14 +1155,14 @@ export function B2BUnitDetailFilterPanel({ b2bUnitId }: B2BUnitDetailPanelProps)
             onChange={(event) => setEndDateInput(event.target.value)}
           />
         </div>
-        <div className="flex items-end">
-          <Button onClick={handleApplyFilters} disabled={transactionsQuery.isFetching}>
+        <div className="flex items-end sm:col-span-2 lg:col-span-1">
+          <Button className="w-full lg:w-auto" onClick={handleApplyFilters} disabled={transactionsQuery.isFetching}>
             Filtrele
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
         <div className="space-y-2">
           <Label htmlFor="b2bunit-transactions-search">Ara</Label>
           <Input
@@ -1179,7 +1179,7 @@ export function B2BUnitDetailFilterPanel({ b2bUnitId }: B2BUnitDetailPanelProps)
           />
         </div>
         <div className="flex items-end">
-          <Button variant="outline" onClick={handleApplySearch} disabled={transactionsQuery.isFetching}>
+          <Button className="w-full lg:w-auto" variant="outline" onClick={handleApplySearch} disabled={transactionsQuery.isFetching}>
             Ara
           </Button>
         </div>
@@ -1192,7 +1192,7 @@ export function B2BUnitDetailFilterPanel({ b2bUnitId }: B2BUnitDetailPanelProps)
               setPage(0)
             }}
           >
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-full sm:w-[120px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -2181,7 +2181,7 @@ function CollectionTransactionForm({
               id={`collection-${mode}-serial-number`}
               value={serialNumber}
               onChange={(event) => {
-                setSerialNumber(event.target.value)
+                setSerial(event.target.value === '' ? Number.NaN : Number(event.target.value))
                 setErrors((prev) => ({ ...prev, serialNumber: undefined }))
               }}
               className={errors.serialNumber ? 'border-destructive' : ''}
@@ -2542,7 +2542,7 @@ function PaymentTransactionForm({
               id={`payment-${mode}-serial-number`}
               value={serialNumber}
               onChange={(event) => {
-                setSerialNumber(event.target.value)
+                setSerial(event.target.value === '' ? Number.NaN : Number(event.target.value))
                 setErrors((prev) => ({ ...prev, serialNumber: undefined }))
               }}
               className={errors.serialNumber ? 'border-destructive' : ''}
@@ -3084,7 +3084,7 @@ export function B2BUnitFacilityCreatePanel({
 
         <div className="space-y-2">
           <Label htmlFor="b2bunit-facility-tax-number">VKN/TCKN</Label>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <Input
               id="b2bunit-facility-tax-number"
               value={form.taxNumber || ''}
@@ -3096,6 +3096,7 @@ export function B2BUnitFacilityCreatePanel({
               variant="outline"
               onClick={handleValidateTaxNumber}
               disabled={vknValidationMutation.isPending}
+              className="w-full whitespace-nowrap sm:w-auto"
             >
               E-Fatura Sorgula
             </Button>

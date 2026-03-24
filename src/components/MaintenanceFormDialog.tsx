@@ -194,7 +194,7 @@ export function MaintenanceFormDialog({
               type="number"
               step="0.01"
               value={formData.ucret}
-              onChange={(e) => setFormData({ ...formData, ucret: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, ucret: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })}
               required
               className="w-full"
             />

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { getUserFriendlyErrorMessage } from '@/lib/api-error-handler'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import {
   cariService,
   type B2BUnitDetailMenuItem,
@@ -247,6 +248,8 @@ export function B2BUnitDetailPage() {
   const [elevatorExpanded, setElevatorExpanded] = useState(false)
   const [editingFacilityId, setEditingFacilityId] = useState<number | null>(null)
   const [editingElevatorId, setEditingElevatorId] = useState<number | null>(null)
+  const [menuCardExpanded, setMenuCardExpanded] = useState(true)
+  const [elevatorActionsExpanded, setElevatorActionsExpanded] = useState(true)
 
   useEffect(() => {
     const validKeys: DetailPanelKey[] = [
@@ -436,7 +439,7 @@ export function B2BUnitDetailPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Cari Detay</CardTitle>
-          <Button variant="outline" onClick={() => navigate('/b2bunits')}>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate('/b2bunits')}>
             Listeye Dön
           </Button>
         </CardHeader>
@@ -452,52 +455,64 @@ export function B2BUnitDetailPage() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>{detail.name || 'Cari Detay'}</CardTitle>
             {detail.code ? <p className="mt-1 text-sm text-muted-foreground">{detail.code}</p> : null}
           </div>
-          <Button variant="outline" onClick={() => navigate('/b2bunits')}>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate('/b2bunits')}>
             Listeye Dön
           </Button>
         </CardHeader>
       </Card>
 
       {detail.summary ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Toplam Gelir</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xl font-semibold">{formatAmount(detail.summary.totalIncome)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Toplam Gider</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xl font-semibold">{formatAmount(detail.summary.totalExpense)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Bakiye</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xl font-semibold">{formatAmount(detail.summary.totalBalance)}</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Özet</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="rounded-md border bg-muted/20 p-3 text-center">
+                <p className="text-xs text-muted-foreground sm:text-sm">Toplam Gelir</p>
+                <p className="mt-1 text-lg font-semibold sm:text-xl">
+                  {formatAmount(detail.summary.totalIncome)}
+                </p>
+              </div>
+              <div className="rounded-md border bg-muted/20 p-3 text-center">
+                <p className="text-xs text-muted-foreground sm:text-sm">Toplam Gider</p>
+                <p className="mt-1 text-lg font-semibold sm:text-xl">
+                  {formatAmount(detail.summary.totalExpense)}
+                </p>
+              </div>
+              <div className="rounded-md border bg-muted/20 p-3 text-center">
+                <p className="text-xs text-muted-foreground sm:text-sm">Bakiye</p>
+                <p className="mt-1 text-lg font-semibold sm:text-xl">
+                  {formatAmount(detail.summary.totalBalance)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
         <div className="space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Menü</CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setMenuCardExpanded((prev) => !prev)}
+                aria-label={menuCardExpanded ? 'Menüyü daralt' : 'Menüyü genişlet'}
+              >
+                {menuCardExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
             </CardHeader>
+            {menuCardExpanded ? (
             <CardContent className="space-y-1">
               {visibleMenus.map((menu) => {
                 if (menu.key === 'invoice') {
@@ -813,12 +828,24 @@ export function B2BUnitDetailPage() {
               )
             })}
             </CardContent>
+            ) : null}
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Asansör İşlemleri</CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setElevatorActionsExpanded((prev) => !prev)}
+                aria-label={elevatorActionsExpanded ? 'Asansör işlemlerini daralt' : 'Asansör işlemlerini genişlet'}
+              >
+                {elevatorActionsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
             </CardHeader>
+            {elevatorActionsExpanded ? (
             <CardContent className="space-y-1">
               <button
                 type="button"
@@ -929,6 +956,7 @@ export function B2BUnitDetailPage() {
                 Bakım-Arıza
               </button>
             </CardContent>
+            ) : null}
           </Card>
         </div>
 

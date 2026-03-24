@@ -517,7 +517,7 @@ export function RevisionStandardArticlesPage() {
               onChange={(event) =>
                 setForm((prev) => ({
                   ...prev,
-                  price: event.target.value === '' ? null : Number(event.target.value),
+                  price: event.target.value === '' ? null : (event.target.value === '' ? Number.NaN : Number(event.target.value)),
                 }))
               }
               placeholder="0.00"

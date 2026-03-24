@@ -404,7 +404,7 @@ export function RevisionOfferForm({ offer, onCancel, onSuccess }: RevisionOfferF
                 type="number"
                 step="0.01"
                 value={formData.labor}
-                onChange={(e) => setFormData({ ...formData, labor: Number(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, labor: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })}
               />
             </div>
             <div className="space-y-2">
@@ -511,7 +511,7 @@ export function RevisionOfferForm({ offer, onCancel, onSuccess }: RevisionOfferF
                         type="number"
                         min="1"
                         value={part.quantity}
-                        onChange={(e) => updatePart(index, 'quantity', Number(e.target.value))}
+                        onChange={(e) => updatePart(index, 'quantity', (e.target.value === '' ? Number.NaN : Number(e.target.value)))}
                       />
                     </div>
 
@@ -521,7 +521,7 @@ export function RevisionOfferForm({ offer, onCancel, onSuccess }: RevisionOfferF
                         type="number"
                         step="0.01"
                         value={unitPrice}
-                        onChange={(e) => updatePart(index, 'unitPrice', Number(e.target.value))}
+                        onChange={(e) => updatePart(index, 'unitPrice', (e.target.value === '' ? Number.NaN : Number(e.target.value)))}
                       />
                     </div>
 

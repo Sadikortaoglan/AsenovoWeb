@@ -66,7 +66,7 @@ export function EdmManualInvoicePage() {
           }}
           onChange={(e) => setForm({ ...form, receiverVknTckn: e.target.value })}
         />
-        <Input type="number" placeholder="Tutar" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
+        <Input type="number" placeholder="Tutar" value={form.amount} onChange={(e) => setForm({ ...form, amount: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
         <Textarea placeholder="Not" value={form.note || ''} onChange={(e) => setForm({ ...form, note: e.target.value })} />
 
         <div className="flex justify-end">

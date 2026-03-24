@@ -446,7 +446,7 @@ export function FacilityFormPage() {
 
           <div className="space-y-2">
             <Label htmlFor="taxNumber">VKN/TCKN</Label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
               <Input
                 id="taxNumber"
                 value={form.taxNumber || ''}
@@ -458,6 +458,7 @@ export function FacilityFormPage() {
                 variant="outline"
                 onClick={handleValidateTaxNumber}
                 disabled={vknValidationMutation.isPending}
+                className="w-full whitespace-nowrap sm:w-auto"
               >
                 E-Fatura Sorgula
               </Button>

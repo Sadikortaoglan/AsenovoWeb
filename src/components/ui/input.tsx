@@ -5,6 +5,21 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => {
+    const normalizedValue =
+      type === 'number' &&
+      Object.prototype.hasOwnProperty.call(props, 'value') &&
+      typeof props.value === 'number' &&
+      Number.isNaN(props.value)
+        ? ''
+        : props.value
+
+    const handleFocus: React.FocusEventHandler<HTMLInputElement> = (event) => {
+      if (type === 'number' && event.currentTarget.value === '0') {
+        event.currentTarget.select()
+      }
+      props.onFocus?.(event)
+    }
+
     return (
       <input
         type={type}
@@ -19,6 +34,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         ref={ref}
         {...props}
+        value={normalizedValue}
+        onFocus={handleFocus}
       />
     )
   }
@@ -26,4 +43,3 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = 'Input'
 
 export { Input }
-

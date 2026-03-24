@@ -21,6 +21,7 @@ import { getUserFriendlyErrorMessage } from '@/lib/api-error-handler'
 import { useAuth } from '@/contexts/AuthContext'
 import { EntityModal } from '@/modules/shared/components/EntityModal'
 import { PaginatedTable } from '@/modules/shared/components/PaginatedTable'
+import { ActionButtons } from '@/components/ui/action-buttons'
 import {
   cariService,
   type B2BUnit,
@@ -44,7 +45,7 @@ const createInitialForm = (): B2BUnitFormPayload => ({
   email: '',
   groupId: undefined,
   currency: 'TRY',
-  riskLimit: 0,
+  riskLimit: Number.NaN,
   address: '',
   description: '',
   portalUsername: '',
@@ -343,12 +344,15 @@ export function B2BUnitsPage() {
           pageData={unitsQuery.data}
           loading={unitsQuery.isLoading || deleteMutation.isPending}
           onPageChange={setPage}
+          mobileCardView
           sort={{ field: sortField, direction: sortDirection }}
           onSortChange={handleSortChange}
           columns={[
             {
               key: 'name',
               header: 'Cari Adı',
+              mobileLabel: 'Cari Adı',
+              mobilePriority: 10,
               sortable: true,
               sortKey: 'name',
               render: (r) => <span className="font-medium">{r.name}</span>,
@@ -356,6 +360,8 @@ export function B2BUnitsPage() {
             {
               key: 'phone',
               header: 'Telefon',
+              mobileLabel: 'Telefon',
+              mobilePriority: 9,
               sortable: true,
               sortKey: 'phone',
               render: (r) => r.phone || '-',
@@ -363,6 +369,9 @@ export function B2BUnitsPage() {
             {
               key: 'email',
               header: 'Mail',
+              mobileLabel: 'Mail',
+              mobilePriority: 8,
+              hideOnMobile: true,
               sortable: true,
               sortKey: 'email',
               render: (r) => r.email || '-',
@@ -370,11 +379,16 @@ export function B2BUnitsPage() {
             {
               key: 'groupName',
               header: 'Grup',
+              mobileLabel: 'Grup',
+              mobilePriority: 7,
               render: (r) => r.groupName || '-',
             },
             {
               key: 'currency',
               header: 'Para Birimi',
+              mobileLabel: 'Para Birimi',
+              mobilePriority: 6,
+              hideOnMobile: true,
               sortable: true,
               sortKey: 'currency',
               render: (r) => r.currency || 'TRY',
@@ -382,6 +396,8 @@ export function B2BUnitsPage() {
             {
               key: 'riskLimit',
               header: 'Risk Limiti',
+              mobileLabel: 'Risk Limiti',
+              mobilePriority: 5,
               sortable: true,
               sortKey: 'riskLimit',
               render: (r) => formatRiskLimit(r.riskLimit),
@@ -389,39 +405,62 @@ export function B2BUnitsPage() {
             {
               key: 'actions',
               header: 'İşlem',
+              mobileLabel: '',
+              mobilePriority: 1,
               render: (r) => (
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => r.id && navigate(`/b2b-units/${r.id}`)}
-                    disabled={!r.id}
-                  >
-                    Detay
-                  </Button>
-                  {canManageUnits ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => r.id && handleEdit(r.id)}
-                        disabled={!r.id || loadingDetailId === r.id}
-                      >
-                        {loadingDetailId === r.id ? 'Yükleniyor...' : 'Düzenle'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteRequest(r)}
-                        disabled={!r.id || deleteMutation.isPending}
-                      >
-                        Sil
-                      </Button>
-                    </>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Yalnızca görüntüleme</span>
-                  )}
-                </div>
+                <>
+                  <div className="hidden sm:flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => r.id && navigate(`/b2b-units/${r.id}`)}
+                      disabled={!r.id}
+                    >
+                      Detay
+                    </Button>
+                    {canManageUnits ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => r.id && handleEdit(r.id)}
+                          disabled={!r.id || loadingDetailId === r.id}
+                        >
+                          {loadingDetailId === r.id ? 'Yükleniyor...' : 'Düzenle'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteRequest(r)}
+                          disabled={!r.id || deleteMutation.isPending}
+                        >
+                          Sil
+                        </Button>
+                      </>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Yalnızca görüntüleme</span>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end sm:hidden">
+                    <ActionButtons
+                      onView={r.id ? () => navigate(`/b2b-units/${r.id}`) : undefined}
+                      onEdit={
+                        canManageUnits && r.id
+                          ? () => {
+                              if (loadingDetailId === r.id) return
+                              handleEdit(r.id)
+                            }
+                          : undefined
+                      }
+                      onDelete={
+                        canManageUnits && r.id && !deleteMutation.isPending
+                          ? () => handleDeleteRequest(r)
+                          : undefined
+                      }
+                    />
+                  </div>
+                </>
               ),
             },
           ]}
@@ -539,8 +578,8 @@ export function B2BUnitsPage() {
                 type="number"
                 min={0}
                 step="0.01"
-                value={form.riskLimit ?? 0}
-                onChange={(e) => setField('riskLimit', e.target.value === '' ? 0 : Number(e.target.value))}
+                value={Number.isFinite(form.riskLimit) ? form.riskLimit : ''}
+                onChange={(e) => setField('riskLimit', e.target.value === '' ? Number.NaN : Number(e.target.value))}
                 className={fieldErrors.riskLimit ? 'border-destructive' : ''}
               />
               {fieldErrors.riskLimit ? <p className="text-sm text-destructive">{fieldErrors.riskLimit}</p> : null}

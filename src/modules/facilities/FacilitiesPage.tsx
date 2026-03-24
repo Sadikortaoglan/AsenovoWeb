@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getUserFriendlyErrorMessage } from '@/lib/api-error-handler'
 import { PaginatedTable } from '@/modules/shared/components/PaginatedTable'
 import { PageHeaderActionGroup } from '@/components/shared/PageHeaderActionGroup'
+import { ActionButtons } from '@/components/ui/action-buttons'
 import {
   facilitiesService,
   type Facility,
@@ -384,12 +385,15 @@ export function FacilitiesPage() {
           pageData={facilitiesQuery.data}
           loading={facilitiesQuery.isLoading || deleteMutation.isPending}
           onPageChange={setPage}
+          mobileCardView
           sort={{ field: sortField, direction: sortDirection }}
           onSortChange={handleSortChange}
           columns={[
             {
               key: 'name',
               header: 'Tesis Adı',
+              mobileLabel: 'Tesis Adı',
+              mobilePriority: 10,
               sortable: true,
               sortKey: 'name',
               render: (facility) => <span className="font-medium">{facility.name}</span>,
@@ -397,11 +401,15 @@ export function FacilitiesPage() {
             {
               key: 'b2bUnitName',
               header: 'Cari',
+              mobileLabel: 'Cari',
+              mobilePriority: 9,
               render: (facility) => facility.b2bUnitName || '-',
             },
             {
               key: 'cityDistrict',
               header: 'İl/İlçe',
+              mobileLabel: 'İl/İlçe',
+              mobilePriority: 8,
               render: (facility) => {
                 const city = facility.cityName || '-'
                 const district = facility.districtName || '-'
@@ -411,6 +419,9 @@ export function FacilitiesPage() {
             {
               key: 'phone',
               header: 'Telefon',
+              mobileLabel: 'Telefon',
+              mobilePriority: 7,
+              hideOnMobile: true,
               sortable: true,
               sortKey: 'phone',
               render: (facility) => facility.phone || '-',
@@ -418,6 +429,8 @@ export function FacilitiesPage() {
             {
               key: 'status',
               header: 'Durum',
+              mobileLabel: 'Durum',
+              mobilePriority: 4,
               sortable: true,
               sortKey: 'status',
               render: (facility) => statusBadge(facility.status),
@@ -425,52 +438,83 @@ export function FacilitiesPage() {
             {
               key: 'actions',
               header: 'İşlem',
+              mobileLabel: '',
+              mobilePriority: 1,
               render: (facility) => (
-                <div className="flex flex-wrap justify-end gap-2">
-                  {canManageFacilities ? (
+                <>
+                  <div className="hidden sm:flex flex-wrap justify-end gap-2">
+                    {canManageFacilities ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => facility.id && navigate(`/facilities/${facility.id}/edit`)}
+                        disabled={!facility.id}
+                      >
+                        Düzenle
+                      </Button>
+                    ) : null}
+
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => facility.id && navigate(`/facilities/${facility.id}/edit`)}
+                      onClick={() => facility.id && navigate(`/facilities/${facility.id}`)}
                       disabled={!facility.id}
                     >
-                      Düzenle
+                      Detay
                     </Button>
-                  ) : null}
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => facility.id && navigate(`/facilities/${facility.id}`)}
-                    disabled={!facility.id}
-                  >
-                    Detay
-                  </Button>
+                    {canDeleteFacilities ? (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteRequest(facility)}
+                        disabled={!facility.id || deleteMutation.isPending}
+                      >
+                        Sil
+                      </Button>
+                    ) : null}
 
-                  {canDeleteFacilities ? (
                     <Button
                       size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteRequest(facility)}
-                      disabled={!facility.id || deleteMutation.isPending}
+                      variant="secondary"
+                      onClick={() => handleReport(facility)}
+                      disabled={!facility.id || reportMutation.isPending}
                     >
-                      Sil
+                      Rapor
                     </Button>
-                  ) : null}
 
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => handleReport(facility)}
-                    disabled={!facility.id || reportMutation.isPending}
-                  >
-                    Rapor
-                  </Button>
+                    {!canManageFacilities && !canDeleteFacilities ? (
+                      <span className="self-center text-xs text-muted-foreground">Yalnızca görüntüleme</span>
+                    ) : null}
+                  </div>
 
-                  {!canManageFacilities && !canDeleteFacilities ? (
-                    <span className="self-center text-xs text-muted-foreground">Yalnızca görüntüleme</span>
-                  ) : null}
-                </div>
+                  <div className="flex flex-col items-end gap-2 sm:hidden">
+                    <ActionButtons
+                      onView={facility.id ? () => navigate(`/facilities/${facility.id}`) : undefined}
+                      onEdit={
+                        canManageFacilities && facility.id
+                          ? () => navigate(`/facilities/${facility.id}/edit`)
+                          : undefined
+                      }
+                      onDelete={
+                        canDeleteFacilities && facility.id && !deleteMutation.isPending
+                          ? () => handleDeleteRequest(facility)
+                          : undefined
+                      }
+                    />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleReport(facility)}
+                      disabled={!facility.id || reportMutation.isPending}
+                    >
+                      Rapor
+                    </Button>
+                    {!canManageFacilities && !canDeleteFacilities ? (
+                      <span className="text-xs text-muted-foreground">Yalnızca görüntüleme</span>
+                    ) : null}
+                  </div>
+                </>
               ),
             },
           ]}
