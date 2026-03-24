@@ -96,8 +96,8 @@ export const elevatorDocumentsService = {
     const unwrapped = unwrapResponse(data as ApiResponse<ElevatorLookupOption[]> | ElevatorLookupOption[], true)
     if (!Array.isArray(unwrapped)) return []
 
-    return unwrapped
-      .map((row: any) => {
+    const options = unwrapped
+      .map((row: any): ElevatorLookupOption | null => {
         const idCandidate = Number(row?.id ?? row?.elevatorId)
         if (!Number.isFinite(idCandidate) || idCandidate <= 0) return null
 
@@ -113,9 +113,10 @@ export const elevatorDocumentsService = {
           name: primaryName || fallbackName,
           facilityName: facilityName || undefined,
           identityNumber: identityNumber || undefined,
-        } satisfies ElevatorLookupOption
+        }
       })
-      .filter((row): row is ElevatorLookupOption => row !== null)
+
+    return options.filter((row): row is ElevatorLookupOption => row !== null)
   },
 
   async getLabels(page: number, size: number, elevatorId?: number): Promise<SpringPage<ElevatorLabel>> {
