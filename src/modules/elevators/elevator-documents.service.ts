@@ -8,11 +8,21 @@ export interface ElevatorLabel {
   id?: number
   elevatorId: number
   elevatorName?: string
+  facilityName?: string
+  buildingName?: string
+  identityNumber?: string
   labelName: string
   startAt: string
   endAt: string
   description?: string
   filePath?: string
+}
+
+export interface ElevatorLookupOption {
+  id: number
+  name: string
+  facilityName?: string
+  identityNumber?: string
 }
 
 export interface ElevatorContract {
@@ -74,6 +84,40 @@ function normalizePageResponse<T>(payload: unknown, page: number, size: number):
 }
 
 export const elevatorDocumentsService = {
+  async lookupElevators(query?: string): Promise<ElevatorLookupOption[]> {
+    const { data } = await apiClient.get<ApiResponse<ElevatorLookupOption[]> | ElevatorLookupOption[]>(
+      '/elevators/lookup',
+      {
+        baseURL: resolveTenantApiBaseUrl(),
+        params: { query },
+      },
+    )
+
+    const unwrapped = unwrapResponse(data as ApiResponse<ElevatorLookupOption[]> | ElevatorLookupOption[], true)
+    if (!Array.isArray(unwrapped)) return []
+
+    return unwrapped
+      .map((row: any) => {
+        const idCandidate = Number(row?.id ?? row?.elevatorId)
+        if (!Number.isFinite(idCandidate) || idCandidate <= 0) return null
+
+        const identityNumber = typeof row?.identityNumber === 'string' ? row.identityNumber.trim() : ''
+        const primaryName = typeof row?.name === 'string' ? row.name.trim() : ''
+        const fallbackName = identityNumber || `Asansör #${idCandidate}`
+        const facilityNameRaw =
+          row?.facilityName ?? row?.buildingName ?? row?.bina ?? row?.facility ?? row?.building
+        const facilityName = typeof facilityNameRaw === 'string' ? facilityNameRaw.trim() : ''
+
+        return {
+          id: idCandidate,
+          name: primaryName || fallbackName,
+          facilityName: facilityName || undefined,
+          identityNumber: identityNumber || undefined,
+        } satisfies ElevatorLookupOption
+      })
+      .filter((row): row is ElevatorLookupOption => row !== null)
+  },
+
   async getLabels(page: number, size: number, elevatorId?: number): Promise<SpringPage<ElevatorLabel>> {
     try {
       const cleanedParams = Object.fromEntries(
