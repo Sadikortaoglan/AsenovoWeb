@@ -120,19 +120,19 @@ export function StocksPage() {
         <Input list="models" placeholder="Model" value={form.modelName || ''} onChange={(e) => setForm({ ...form, modelName: e.target.value })} />
         <datalist id="models">{(modelsQuery.data || []).map((m) => <option key={m} value={m} />)}</datalist>
         <Input placeholder="Birim" value={form.unit || ''} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
-        <Input list="vat-rates" type="number" placeholder="KDV" value={form.vatRate} onChange={(e) => setForm({ ...form, vatRate: Number(e.target.value) })} />
+        <Input list="vat-rates" type="number" placeholder="KDV" value={form.vatRate} onChange={(e) => setForm({ ...form, vatRate: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
         <datalist id="vat-rates">{(vatRatesQuery.data || []).map((v) => <option key={v} value={v} />)}</datalist>
-        <Input type="number" placeholder="Alış" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: Number(e.target.value) })} />
-        <Input type="number" placeholder="Satış" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: Number(e.target.value) })} />
-        <Input type="number" placeholder="Stok Giriş" value={form.stockIn} onChange={(e) => setForm({ ...form, stockIn: Number(e.target.value) })} />
-        <Input type="number" placeholder="Stok Çıkış" value={form.stockOut} onChange={(e) => setForm({ ...form, stockOut: Number(e.target.value) })} />
+        <Input type="number" placeholder="Alış" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
+        <Input type="number" placeholder="Satış" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
+        <Input type="number" placeholder="Stok Giriş" value={form.stockIn} onChange={(e) => setForm({ ...form, stockIn: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
+        <Input type="number" placeholder="Stok Çıkış" value={form.stockOut} onChange={(e) => setForm({ ...form, stockOut: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
         <Label>Toplam (KDV dahil): {Number.isFinite(totalWithVat) ? totalWithVat.toFixed(2) : '0.00'}</Label>
       </EntityModal>
 
       <EntityModal open={transferOpen} onOpenChange={setTransferOpen} title="Stok Transfer" onSubmit={() => transferMutation.mutate()} pending={transferMutation.isPending}>
-        <Input type="number" placeholder="From Stock ID" value={transferForm.fromStockId || ''} onChange={(e) => setTransferForm({ ...transferForm, fromStockId: Number(e.target.value) })} />
-        <Input type="number" placeholder="To Stock ID" value={transferForm.toStockId || ''} onChange={(e) => setTransferForm({ ...transferForm, toStockId: Number(e.target.value) })} />
-        <Input type="number" placeholder="Quantity" value={transferForm.quantity || ''} onChange={(e) => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} />
+        <Input type="number" placeholder="From Stock ID" value={transferForm.fromStockId || ''} onChange={(e) => setTransferForm({ ...transferForm, fromStockId: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
+        <Input type="number" placeholder="To Stock ID" value={transferForm.toStockId || ''} onChange={(e) => setTransferForm({ ...transferForm, toStockId: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
+        <Input type="number" placeholder="Quantity" value={transferForm.quantity || ''} onChange={(e) => setTransferForm({ ...transferForm, quantity: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
         <Input type="datetime-local" value={transferForm.transferDate} onChange={(e) => setTransferForm({ ...transferForm, transferDate: e.target.value })} />
         <Input placeholder="Not" value={transferForm.note || ''} onChange={(e) => setTransferForm({ ...transferForm, note: e.target.value })} />
       </EntityModal>

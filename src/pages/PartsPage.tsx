@@ -340,7 +340,7 @@ function PartFormDialog({
                 type="number"
                 inputMode="numeric"
                 value={formData.stockLevel}
-                onChange={(e) => setFormData({ ...formData, stockLevel: Number(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, stockLevel: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })}
                 required
                 className="w-full"
               />
@@ -353,7 +353,7 @@ function PartFormDialog({
                 inputMode="decimal"
                 step="0.01"
                 value={formData.unitPrice}
-                onChange={(e) => setFormData({ ...formData, unitPrice: Number(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, unitPrice: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })}
                 required
                 className="w-full"
               />

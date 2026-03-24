@@ -377,12 +377,6 @@ export function ElevatorsPage() {
               mobileLabel: 'Bitiş Tarihi',
               mobilePriority: 4,
               render: (elevator: Elevator) => {
-                // Debug: Log elevator data to verify expiryDate exists
-                console.log('Elevator row data:', {
-                  id: elevator.id,
-                  kimlikNo: elevator.kimlikNo,
-                  bitisTarihi: elevator.bitisTarihi,
-                })
                 // Format expiryDate as DD.MM.YYYY, show "-" if null/empty
                 return elevator.bitisTarihi ? formatDateShort(elevator.bitisTarihi) : '-'
               },

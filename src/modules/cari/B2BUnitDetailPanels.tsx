@@ -2181,7 +2181,7 @@ function CollectionTransactionForm({
               id={`collection-${mode}-serial-number`}
               value={serialNumber}
               onChange={(event) => {
-                setSerialNumber(event.target.value)
+                setSerial(event.target.value === '' ? Number.NaN : Number(event.target.value))
                 setErrors((prev) => ({ ...prev, serialNumber: undefined }))
               }}
               className={errors.serialNumber ? 'border-destructive' : ''}
@@ -2542,7 +2542,7 @@ function PaymentTransactionForm({
               id={`payment-${mode}-serial-number`}
               value={serialNumber}
               onChange={(event) => {
-                setSerialNumber(event.target.value)
+                setSerial(event.target.value === '' ? Number.NaN : Number(event.target.value))
                 setErrors((prev) => ({ ...prev, serialNumber: undefined }))
               }}
               className={errors.serialNumber ? 'border-destructive' : ''}

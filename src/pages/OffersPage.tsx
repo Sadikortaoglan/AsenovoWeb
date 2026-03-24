@@ -469,7 +469,7 @@ function OfferFormDialog({
           type="number"
           min="1"
           value={item.quantity}
-          onChange={(e) => updatePart(item.rowIndex, 'quantity', Number(e.target.value))}
+          onChange={(e) => updatePart(item.rowIndex, 'quantity', (e.target.value === '' ? Number.NaN : Number(e.target.value)))}
           className="w-20"
         />
       ),
@@ -485,7 +485,7 @@ function OfferFormDialog({
           type="number"
           step="0.01"
           value={item.unitPrice}
-          onChange={(e) => updatePart(item.rowIndex, 'unitPrice', Number(e.target.value))}
+          onChange={(e) => updatePart(item.rowIndex, 'unitPrice', (e.target.value === '' ? Number.NaN : Number(e.target.value)))}
           className="w-32"
         />
       ),
@@ -581,7 +581,7 @@ function OfferFormDialog({
                 min="0"
                 max="100"
                 value={formData.vatRate}
-                onChange={(e) => setFormData({ ...formData, vatRate: Number(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, vatRate: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })}
                 required
                 className="w-full"
               />
@@ -594,7 +594,7 @@ function OfferFormDialog({
                 step="0.01"
                 min="0"
                 value={formData.discountAmount}
-                onChange={(e) => setFormData({ ...formData, discountAmount: Number(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, discountAmount: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })}
                 className="w-full"
             />
           </div>
@@ -639,7 +639,7 @@ function OfferFormDialog({
                 inputMode="numeric"
                 placeholder="Miktar"
                 value={itemQuantity}
-                onChange={(e) => setItemQuantity(Number(e.target.value))}
+                onChange={(e) => setItemQuantity((e.target.value === '' ? Number.NaN : Number(e.target.value)))}
                 className="w-full sm:w-24"
                 min="1"
               />

@@ -66,7 +66,7 @@ export function ElevatorLabelFormPage() {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label>Asansör ID</Label>
-          <Input type="number" value={form.elevatorId || ''} onChange={(e) => setForm({ ...form, elevatorId: Number(e.target.value) })} />
+          <Input type="number" value={form.elevatorId || ''} onChange={(e) => setForm({ ...form, elevatorId: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
         </div>
         <div className="space-y-2">
           <Label>Etiket Adı</Label>

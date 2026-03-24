@@ -107,15 +107,15 @@ export function PaymentTransactionsPage() {
 
       <EntityModal open={open} onOpenChange={setOpen} title={editing ? 'Ödeme Düzenle' : 'Ödeme Ekle'} onSubmit={() => canSubmit && saveMutation.mutate()} pending={saveMutation.isPending}>
         <Input placeholder="Payment Type (CASH/BANK)" value={form.paymentType} onChange={(e) => setForm({ ...form, paymentType: e.target.value })} />
-        <Input type="number" placeholder="Amount" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
+        <Input type="number" placeholder="Amount" value={form.amount} onChange={(e) => setForm({ ...form, amount: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
         <Input type="datetime-local" value={form.paymentDate} onChange={(e) => setForm({ ...form, paymentDate: e.target.value })} />
-        <Input placeholder="Current Account ID" type="number" value={form.currentAccountId || ''} onChange={(e) => setForm({ ...form, currentAccountId: Number(e.target.value) || undefined })} />
-        <Input placeholder="Building ID" type="number" value={form.buildingId || ''} onChange={(e) => setForm({ ...form, buildingId: Number(e.target.value) || undefined })} />
+        <Input placeholder="Current Account ID" type="number" value={form.currentAccountId || ''} onChange={(e) => setForm({ ...form, currentAccountId: (e.target.value === '' ? Number.NaN : Number(e.target.value)) || undefined })} />
+        <Input placeholder="Building ID" type="number" value={form.buildingId || ''} onChange={(e) => setForm({ ...form, buildingId: (e.target.value === '' ? Number.NaN : Number(e.target.value)) || undefined })} />
         {form.paymentType === 'CASH' && (
-          <Input placeholder="Cash Account ID" type="number" value={form.cashAccountId || ''} onChange={(e) => setForm({ ...form, cashAccountId: Number(e.target.value) || undefined, bankAccountId: undefined })} />
+          <Input placeholder="Cash Account ID" type="number" value={form.cashAccountId || ''} onChange={(e) => setForm({ ...form, cashAccountId: (e.target.value === '' ? Number.NaN : Number(e.target.value)) || undefined, bankAccountId: undefined })} />
         )}
         {form.paymentType === 'BANK' && (
-          <Input placeholder="Bank Account ID" type="number" value={form.bankAccountId || ''} onChange={(e) => setForm({ ...form, bankAccountId: Number(e.target.value) || undefined, cashAccountId: undefined })} />
+          <Input placeholder="Bank Account ID" type="number" value={form.bankAccountId || ''} onChange={(e) => setForm({ ...form, bankAccountId: (e.target.value === '' ? Number.NaN : Number(e.target.value)) || undefined, cashAccountId: undefined })} />
         )}
         <Input placeholder="Description" value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })} />
       </EntityModal>

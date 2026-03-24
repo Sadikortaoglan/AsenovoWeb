@@ -90,9 +90,9 @@ export function ProposalsPage() {
           <div className="space-y-3 rounded-lg border p-4">
             <p className="text-sm font-medium">Seçili Teklif #{selected.id}</p>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-              <Input type="number" placeholder="Part ID" value={lineItem.partId || ''} onChange={(e) => setLineItem({ ...lineItem, partId: Number(e.target.value) })} />
-              <Input type="number" placeholder="Adet" value={lineItem.quantity || ''} onChange={(e) => setLineItem({ ...lineItem, quantity: Number(e.target.value) })} />
-              <Input type="number" placeholder="Birim Fiyat" value={lineItem.unitPrice || ''} onChange={(e) => setLineItem({ ...lineItem, unitPrice: Number(e.target.value) })} />
+              <Input type="number" placeholder="Part ID" value={lineItem.partId || ''} onChange={(e) => setLineItem({ ...lineItem, partId: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
+              <Input type="number" placeholder="Adet" value={lineItem.quantity || ''} onChange={(e) => setLineItem({ ...lineItem, quantity: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
+              <Input type="number" placeholder="Birim Fiyat" value={lineItem.unitPrice || ''} onChange={(e) => setLineItem({ ...lineItem, unitPrice: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
             </div>
             <Button variant="outline" onClick={() => addItemMutation.mutate()}>Kalem Ekle</Button>
             <div className="space-y-2">
@@ -109,10 +109,10 @@ export function ProposalsPage() {
       </CardContent>
 
       <EntityModal open={open} onOpenChange={setOpen} title="Yeni Proposal" onSubmit={() => saveMutation.mutate()} pending={saveMutation.isPending}>
-        <Input type="number" placeholder="Elevator ID" value={form.elevatorId || ''} onChange={(e) => setForm({ ...form, elevatorId: Number(e.target.value) || undefined })} />
+        <Input type="number" placeholder="Elevator ID" value={form.elevatorId || ''} onChange={(e) => setForm({ ...form, elevatorId: (e.target.value === '' ? Number.NaN : Number(e.target.value)) || undefined })} />
         <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-        <Input type="number" placeholder="KDV %" value={form.vatRate || 0} onChange={(e) => setForm({ ...form, vatRate: Number(e.target.value) })} />
-        <Input type="number" placeholder="İndirim" value={form.discountAmount || 0} onChange={(e) => setForm({ ...form, discountAmount: Number(e.target.value) })} />
+        <Input type="number" placeholder="KDV %" value={Number.isFinite(form.vatRate) ? form.vatRate : ''} onChange={(e) => setForm({ ...form, vatRate: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
+        <Input type="number" placeholder="İndirim" value={Number.isFinite(form.discountAmount) ? form.discountAmount : ''} onChange={(e) => setForm({ ...form, discountAmount: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })} />
         <Label>Kalemler create sonrası /{`{proposalId}`}/items endpointi ile eklenir.</Label>
       </EntityModal>
     </Card>

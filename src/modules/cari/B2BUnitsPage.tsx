@@ -44,7 +44,7 @@ const createInitialForm = (): B2BUnitFormPayload => ({
   email: '',
   groupId: undefined,
   currency: 'TRY',
-  riskLimit: 0,
+  riskLimit: Number.NaN,
   address: '',
   description: '',
   portalUsername: '',
@@ -539,8 +539,8 @@ export function B2BUnitsPage() {
                 type="number"
                 min={0}
                 step="0.01"
-                value={form.riskLimit ?? 0}
-                onChange={(e) => setField('riskLimit', e.target.value === '' ? 0 : Number(e.target.value))}
+                value={Number.isFinite(form.riskLimit) ? form.riskLimit : ''}
+                onChange={(e) => setField('riskLimit', e.target.value === '' ? Number.NaN : Number(e.target.value))}
                 className={fieldErrors.riskLimit ? 'border-destructive' : ''}
               />
               {fieldErrors.riskLimit ? <p className="text-sm text-destructive">{fieldErrors.riskLimit}</p> : null}
