@@ -13,7 +13,7 @@ export interface TenantInfo {
 
 const LOCAL_ROOT_DOMAINS = ['asenovo.local']
 const PROD_ROOT_DOMAINS = ['asenovo.com']
-const RESERVED_SUBDOMAINS = new Set(['www', 'api'])
+const RESERVED_SUBDOMAINS = new Set(['www', 'api', 'app'])
 
 function isLocalHost(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'

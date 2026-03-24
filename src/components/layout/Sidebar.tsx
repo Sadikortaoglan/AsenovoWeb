@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
 import { dashboardService } from '@/services/dashboard.service'
-import type { AnyRole } from '@/lib/roles'
+import { normalizeRole, type AnyRole } from '@/lib/roles'
 import {
   LayoutDashboard,
   Building2,
@@ -47,7 +47,7 @@ type MenuItem = {
   disabled?: boolean
 }
 
-export const menuItems: MenuItem[] = [
+const rawMenuItems: MenuItem[] = [
   {
     title: 'Ana Sayfa',
     href: '/dashboard',
@@ -235,9 +235,28 @@ export const menuItems: MenuItem[] = [
   },
   {
     title: 'Kullanıcılar',
-    href: '/users',
+    href: '/tenant-admin/users',
     icon: Users,
     roles: ['PATRON'] as const,
+  },
+  {
+    title: 'Sistem Yönetimi',
+    icon: Settings,
+    roles: ['SYSTEM_ADMIN'] as const,
+    children: [
+      {
+        title: 'Tenant Yönetimi',
+        href: '/system-admin/tenants',
+        icon: Building2,
+        roles: ['SYSTEM_ADMIN'] as const,
+      },
+      {
+        title: 'Provisioning İşleri',
+        href: '/system-admin/tenant-jobs',
+        icon: ListChecks,
+        roles: ['SYSTEM_ADMIN'] as const,
+      },
+    ],
   },
   {
     title: 'EDM Fatura İşlemleri',
@@ -313,6 +332,15 @@ export const menuItems: MenuItem[] = [
     roles: ['PATRON', 'PERSONEL'] as const,
   },
 ]
+
+const normalizeMenuTreeRoles = (items: MenuItem[]): MenuItem[] =>
+  items.map((item) => ({
+    ...item,
+    roles: item.roles.map((role) => normalizeRole(role)),
+    children: item.children ? normalizeMenuTreeRoles(item.children) : undefined,
+  }))
+
+export const menuItems: MenuItem[] = normalizeMenuTreeRoles(rawMenuItems)
 
 interface NavigationContentProps {
   onNavigate?: () => void
@@ -599,6 +627,8 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
     if (href === '/elevator-labels' && pathname.startsWith('/elevator-labels/')) return true
     if (href === '/elevator-contracts' && pathname.startsWith('/elevator-contracts/')) return true
     if (href === '/facilities' && pathname.startsWith('/facilities/')) return true
+    if (href === '/system-admin/tenants' && pathname.startsWith('/system-admin/tenants/')) return true
+    if (href === '/system-admin/tenant-jobs' && pathname.startsWith('/system-admin/tenant-jobs/')) return true
     return false
   }
 

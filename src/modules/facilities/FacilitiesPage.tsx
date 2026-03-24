@@ -116,7 +116,7 @@ export function FacilitiesPage() {
 
   const isCariUser = user?.role === 'CARI_USER'
   const canManageFacilities = hasAnyRole(['STAFF_USER'])
-  const canDeleteFacilities = hasAnyRole(['SYSTEM_ADMIN', 'STAFF_ADMIN'])
+  const canDeleteFacilities = hasAnyRole(['PLATFORM_ADMIN', 'TENANT_ADMIN'])
 
   const [page, setPage] = useState(0)
   const [queryInput, setQueryInput] = useState('')
