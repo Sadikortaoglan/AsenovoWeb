@@ -88,6 +88,11 @@ export function FacilityDetailPage() {
     queryFn: () => facilitiesService.getFacilityDetail(parsedId),
     enabled: isValidId,
   })
+  const addressQuery = useQuery({
+    queryKey: ['facility', parsedId, 'address'],
+    queryFn: () => facilitiesService.getFacilityAddress(parsedId),
+    enabled: isValidId,
+  })
 
   const reportMutation = useMutation({
     mutationFn: (facilityId: number) => facilitiesService.getFacilityReportHtml(facilityId),
@@ -122,6 +127,10 @@ export function FacilityDetailPage() {
   const elevators = facility?.elevators || []
   const hasElevators = elevators.length > 0
   const fileUrl = facility?.attachmentPreviewUrl || facility?.attachmentUrl
+  const cityName = facility?.cityName || addressQuery.data?.cityName
+  const districtName = facility?.districtName || addressQuery.data?.districtName
+  const regionName = facility?.regionName || addressQuery.data?.regionName
+  const addressText = facility?.addressText || addressQuery.data?.addressText
 
   const handleReport = async () => {
     if (!facility?.id) return
@@ -292,19 +301,19 @@ export function FacilityDetailPage() {
               </div>
               <div className="space-y-1">
                 <Label>İl</Label>
-                <p className="text-sm">{formatDisplayValue(facility.cityName)}</p>
+                <p className="text-sm">{formatDisplayValue(cityName)}</p>
               </div>
               <div className="space-y-1">
                 <Label>İlçe</Label>
-                <p className="text-sm">{formatDisplayValue(facility.districtName)}</p>
+                <p className="text-sm">{formatDisplayValue(districtName)}</p>
               </div>
               <div className="space-y-1">
                 <Label>Bölge</Label>
-                <p className="text-sm">{formatDisplayValue(facility.regionName)}</p>
+                <p className="text-sm">{formatDisplayValue(regionName)}</p>
               </div>
               <div className="space-y-1 md:col-span-2">
                 <Label>Adres</Label>
-                <p className="text-sm">{formatDisplayValue(facility.addressText)}</p>
+                <p className="text-sm">{formatDisplayValue(addressText)}</p>
               </div>
               <div className="space-y-1 md:col-span-2">
                 <Label>Açıklama</Label>
@@ -333,7 +342,7 @@ export function FacilityDetailPage() {
                 <GoogleMapPicker
                   lat={facility.mapLat}
                   lng={facility.mapLng}
-                  addressQuery={facility.mapAddressQuery || facility.addressText || undefined}
+                  addressQuery={facility.mapAddressQuery || addressText || undefined}
                   onAddressQueryChange={() => undefined}
                   onLocationChange={() => undefined}
                   readOnly

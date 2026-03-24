@@ -86,40 +86,29 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Toplam Asansör</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
+        <Card className="md:col-span-2 lg:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Özet</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.totalElevators}</div>
-            <p className="text-xs text-muted-foreground">Kayıtlı asansör sayısı</p>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="rounded-md border bg-muted/20 p-3 text-center">
+                <p className="text-xs text-muted-foreground sm:text-sm">Toplam Asansör</p>
+                <p className="mt-1 text-lg font-semibold sm:text-xl">{summary.totalElevators}</p>
+              </div>
+              <div className="rounded-md border bg-muted/20 p-3 text-center">
+                <p className="text-xs text-muted-foreground sm:text-sm">Toplam Bakım</p>
+                <p className="mt-1 text-lg font-semibold sm:text-xl">{summary.totalMaintenances}</p>
+              </div>
+              <div className="rounded-md border bg-muted/20 p-3 text-center">
+                <p className="text-xs text-muted-foreground sm:text-sm">Toplam Gelir</p>
+                <p className="mt-1 text-lg font-semibold sm:text-xl">{formatCurrency(summary.totalIncome)}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Toplam Bakım</CardTitle>
-            <Wrench className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalMaintenances}</div>
-            <p className="text-xs text-muted-foreground">Toplam bakım kaydı</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Toplam Gelir</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(summary.totalIncome)}</div>
-            <p className="text-xs text-muted-foreground">Ödenmiş bakım geliri</p>
-          </CardContent>
-        </Card>
-
-        <Card>
+        <Card className="md:col-span-2 lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Toplam Borç</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -368,4 +357,3 @@ function DashboardEmptyState() {
     </div>
   )
 }
-

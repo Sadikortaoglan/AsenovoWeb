@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -9,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useIsDesktop } from '@/hooks/useMediaQuery'
 import type { SpringPage } from '../types'
 import {
   ArrowDown,
@@ -49,6 +51,9 @@ interface Column<T> {
   render: (row: T) => ReactNode
   sortable?: boolean
   sortKey?: string
+  mobileLabel?: string
+  mobilePriority?: number
+  hideOnMobile?: boolean
   exportValue?: (row: T) => unknown
   exportable?: boolean
 }
@@ -70,6 +75,8 @@ interface PaginatedTableProps<T> {
   onExportExcel?: () => Promise<void> | void
   onExportCsv?: () => Promise<void> | void
   onExportPdf?: () => Promise<void> | void
+  mobileCardView?: boolean
+  cardClassName?: string
 }
 
 export function PaginatedTable<T>({
@@ -84,8 +91,11 @@ export function PaginatedTable<T>({
   onExportExcel,
   onExportCsv,
   onExportPdf,
+  mobileCardView = false,
+  cardClassName,
 }: PaginatedTableProps<T>) {
   const { toast } = useToast()
+  const isDesktop = useIsDesktop()
   const rows = pageData?.content ?? []
   const pageIndex = pageData?.number ?? 0
   const last = pageData?.last ?? true
@@ -146,6 +156,21 @@ export function PaginatedTable<T>({
     const body = rows.map((row) => exportColumns.map((column) => toExportString(getCellValue(row, column))))
     return [headers, ...body]
   }, [rows, exportColumns])
+  const mobileColumns = useMemo(
+    () =>
+      columns
+        .filter((column) => !column.hideOnMobile)
+        .sort((a, b) => (b.mobilePriority || 0) - (a.mobilePriority || 0)),
+    [columns],
+  )
+  const actionColumns = useMemo(
+    () => mobileColumns.filter((column) => column.key === 'actions'),
+    [mobileColumns],
+  )
+  const regularMobileColumns = useMemo(
+    () => mobileColumns.filter((column) => column.key !== 'actions'),
+    [mobileColumns],
+  )
 
   const handleCopy = async () => {
     const text = rowsAsTextRows.map((row) => row.join('\t')).join('\n')
@@ -322,34 +347,104 @@ export function PaginatedTable<T>({
     })
   }
 
+  const toolbar = (
+    <div className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-sm text-slate-700 font-medium">Sayfa {pageIndex + 1} / {totalPages}</span>
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <Button variant="outline" size="sm" onClick={handleCopy} disabled={exportDisabled} className="w-full sm:w-auto">
+          <ClipboardCopy className="h-4 w-4 mr-1" />
+          Kopyala
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => void handleExcel()} disabled={exportDisabled} className="w-full sm:w-auto">
+          <FileSpreadsheet className="h-4 w-4 mr-1" />
+          Excel
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => void handlePdf()} disabled={exportDisabled} className="w-full sm:w-auto">
+          <FileText className="h-4 w-4 mr-1" />
+          PDF
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => void handleCsv()} disabled={exportDisabled} className="w-full sm:w-auto">
+          <FileText className="h-4 w-4 mr-1" />
+          CSV
+        </Button>
+        <Button variant="outline" size="sm" onClick={handlePrint} disabled={exportDisabled} className="w-full sm:w-auto">
+          <Printer className="h-4 w-4 mr-1" />
+          Yazdır
+        </Button>
+      </div>
+    </div>
+  )
+
+  const pagination = (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(Math.max(0, pageIndex - 1))}
+        disabled={pageIndex === 0 || loading}
+      >
+        Önceki
+      </Button>
+      <span className="text-sm text-muted-foreground">
+        Sayfa {pageIndex + 1} / {totalPages}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(pageIndex + 1)}
+        disabled={last || loading}
+      >
+        Sonraki
+      </Button>
+    </div>
+  )
+
+  if (mobileCardView && !isDesktop) {
+    return (
+      <div className="min-w-0 space-y-3">
+        {toolbar}
+        {loading ? (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">Yükleniyor...</CardContent>
+          </Card>
+        ) : rows.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">{emptyMessage}</CardContent>
+          </Card>
+        ) : (
+          rows.map((row, index) => (
+            <Card key={index} className={cardClassName}>
+              <CardContent className="space-y-3 p-4">
+                {regularMobileColumns.map((column) => {
+                  const label = column.mobileLabel || column.header
+                  const value = column.render(row)
+                  return (
+                    <div key={column.key} className="flex flex-col space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                      <div className="text-sm break-words">{value}</div>
+                    </div>
+                  )
+                })}
+                {actionColumns.length > 0 ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-2">
+                    {actionColumns.map((column) => (
+                      <div key={column.key}>{column.render(row)}</div>
+                    ))}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          ))
+        )}
+        {pagination}
+      </div>
+    )
+  }
+
   return (
     <div className="min-w-0 space-y-3">
       <div className="rounded-lg border bg-card">
-        <div className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-sm text-slate-700 font-medium">Sayfa {pageIndex + 1} / {totalPages}</span>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <Button variant="outline" size="sm" onClick={handleCopy} disabled={exportDisabled} className="w-full sm:w-auto">
-              <ClipboardCopy className="h-4 w-4 mr-1" />
-              Kopyala
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => void handleExcel()} disabled={exportDisabled} className="w-full sm:w-auto">
-              <FileSpreadsheet className="h-4 w-4 mr-1" />
-              Excel
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => void handlePdf()} disabled={exportDisabled} className="w-full sm:w-auto">
-              <FileText className="h-4 w-4 mr-1" />
-              PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => void handleCsv()} disabled={exportDisabled} className="w-full sm:w-auto">
-              <FileText className="h-4 w-4 mr-1" />
-              CSV
-            </Button>
-            <Button variant="outline" size="sm" onClick={handlePrint} disabled={exportDisabled} className="w-full sm:w-auto">
-              <Printer className="h-4 w-4 mr-1" />
-              Yazdır
-            </Button>
-          </div>
-        </div>
+        {toolbar}
         <Table className="min-w-[720px]">
           <TableHeader>
             <TableRow>
@@ -392,27 +487,7 @@ export function PaginatedTable<T>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(Math.max(0, pageIndex - 1))}
-          disabled={pageIndex === 0 || loading}
-        >
-          Önceki
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Sayfa {pageIndex + 1} / {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(pageIndex + 1)}
-          disabled={last || loading}
-        >
-          Sonraki
-        </Button>
-      </div>
+      {pagination}
     </div>
   )
 }
