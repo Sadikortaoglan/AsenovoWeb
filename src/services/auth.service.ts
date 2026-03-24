@@ -139,7 +139,7 @@ export const authService = {
     } catch (error: any) {
       const statusCode = error?.response?.status
       if (statusCode === 404 || statusCode === 405) {
-        return null
+        throw new Error('Giriş endpointine ulaşılamadı')
       }
       throw error
     }
