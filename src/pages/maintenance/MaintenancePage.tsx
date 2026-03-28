@@ -32,8 +32,8 @@ export function MaintenancePage() {
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('ALL')
   const [selectedPlan, setSelectedPlan] = useState<MaintenancePlan | null>(null)
   
-  // Check if user is ADMIN
-  const isAdmin = hasRole('PATRON') // PATRON = ADMIN in this system
+  // Check if user is tenant admin
+  const isAdmin = hasRole('TENANT_ADMIN')
   
   // Modal states
   const [qrDialogOpen, setQrDialogOpen] = useState(false)

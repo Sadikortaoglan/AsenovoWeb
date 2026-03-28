@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { TenantProvider, useTenant } from './contexts/TenantContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -9,6 +9,7 @@ import { GlobalApiErrorBanner } from './components/GlobalApiErrorBanner'
 import { Toaster } from './components/ui/toaster'
 import { MarketingSiteRoutes } from './pages/marketing/MarketingSite'
 import { LoginPage } from './pages/LoginPage'
+import { PlatformLoginPage } from './pages/PlatformLoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ElevatorsPage } from './pages/ElevatorsPage'
 import { ElevatorDetailPage } from './pages/ElevatorDetailPage'
@@ -49,14 +50,25 @@ import { B2BUnitMePage } from './modules/cari/B2BUnitMePage'
 import { FacilitiesPage } from './modules/facilities/FacilitiesPage'
 import { FacilityFormPage } from './modules/facilities/FacilityFormPage'
 import { FacilityDetailPage } from './modules/facilities/FacilityDetailPage'
+import { SystemAdminTenantListPage } from './modules/system-admin/SystemAdminTenantListPage'
+import { SystemAdminDashboardPage } from './modules/system-admin/SystemAdminDashboardPage'
+import { SystemAdminTenantDetailPage } from './modules/system-admin/SystemAdminTenantDetailPage'
+import { SystemAdminTenantJobsPage } from './modules/system-admin/SystemAdminTenantJobsPage'
+import { SystemAdminTenantJobDetailPage } from './modules/system-admin/SystemAdminTenantJobDetailPage'
 import { ForbiddenPage } from './pages/ForbiddenPage'
 import { QrCodesPage } from './modules/qr-codes/QrCodesPage'
 
 function AppRoutes() {
   const { bootStatus, tenant, errorMessage, recheckTenantHealth, isMarketingHost } = useTenant()
   const { isAuthenticated, isLoading, getDefaultRoute } = useAuth()
+  const location = useLocation()
 
-  if (isMarketingHost) {
+  if (
+    isMarketingHost &&
+    !isAuthenticated &&
+    location.pathname !== '/login' &&
+    location.pathname !== '/platform/login'
+  ) {
     return <MarketingSiteRoutes />
   }
 
@@ -108,6 +120,16 @@ function AppRoutes() {
           )
         }
       />
+      <Route
+        path="/platform/login"
+        element={
+          isAuthenticated && !isLoading ? (
+            <Navigate to={getDefaultRoute()} replace />
+          ) : (
+            <PlatformLoginPage />
+          )
+        }
+      />
       <Route path="/forbidden" element={<ForbiddenPage />} />
       <Route
         path="/"
@@ -153,7 +175,9 @@ function AppRoutes() {
         <Route
           path="b2b-units/:id"
           element={
-            <ProtectedRoute requireAnyRole={['SYSTEM_ADMIN', 'STAFF_ADMIN', 'STAFF_USER', 'CARI_USER']}>
+            <ProtectedRoute
+              requireAnyRole={['PLATFORM_ADMIN', 'TENANT_ADMIN', 'STAFF_USER', 'CARI_USER']}
+            >
               <B2BUnitDetailPage />
             </ProtectedRoute>
           }
@@ -209,8 +233,56 @@ function AppRoutes() {
         <Route
           path="users"
           element={
-            <ProtectedRoute requireAnyRole={['SYSTEM_ADMIN', 'STAFF_ADMIN']}>
+            <ProtectedRoute requireRole="TENANT_ADMIN">
+              <Navigate to="/tenant-admin/users" replace />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="tenant-admin/users"
+          element={
+            <ProtectedRoute requireRole="TENANT_ADMIN">
               <UsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="system-admin"
+          element={
+            <ProtectedRoute requireRole="PLATFORM_ADMIN" requireScopeType="PLATFORM">
+              <SystemAdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="system-admin/tenants"
+          element={
+            <ProtectedRoute requireRole="PLATFORM_ADMIN" requireScopeType="PLATFORM">
+              <SystemAdminTenantListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="system-admin/tenants/:id"
+          element={
+            <ProtectedRoute requireRole="PLATFORM_ADMIN" requireScopeType="PLATFORM">
+              <SystemAdminTenantDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="system-admin/tenant-jobs"
+          element={
+            <ProtectedRoute requireRole="PLATFORM_ADMIN" requireScopeType="PLATFORM">
+              <SystemAdminTenantJobsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="system-admin/tenant-jobs/:id"
+          element={
+            <ProtectedRoute requireRole="PLATFORM_ADMIN" requireScopeType="PLATFORM">
+              <SystemAdminTenantJobDetailPage />
             </ProtectedRoute>
           }
         />

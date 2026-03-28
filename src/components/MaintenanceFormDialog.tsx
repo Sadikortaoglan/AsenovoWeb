@@ -39,7 +39,7 @@ export function MaintenanceFormDialog({
   onSuccess,
 }: MaintenanceFormDialogProps) {
   const { user, hasRole } = useAuth()
-  const isAdmin = hasRole('PATRON') // PATRON = ADMIN
+  const isAdmin = hasRole('TENANT_ADMIN')
   const [formData, setFormData] = useState(getInitialFormState())
   const [photoError, setPhotoError] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)

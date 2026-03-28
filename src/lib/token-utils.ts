@@ -2,10 +2,12 @@
  * Token utility functions for JWT token management
  */
 
+import type { AnyRole } from './roles'
+
 export interface TokenPayload {
   userId: number
   username: string
-  role: 'SYSTEM_ADMIN' | 'STAFF_ADMIN' | 'STAFF_USER' | 'CARI_USER'
+  role: AnyRole
   userType?: 'SYSTEM_ADMIN' | 'STAFF' | 'CARI'
   b2bUnitId?: number | null
   exp: number

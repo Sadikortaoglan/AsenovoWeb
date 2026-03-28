@@ -449,7 +449,9 @@ export function B2BUnitsPage() {
                         canManageUnits && r.id
                           ? () => {
                               if (loadingDetailId === r.id) return
-                              handleEdit(r.id)
+                              const id = r.id
+                              if (!id) return
+                              handleEdit(id)
                             }
                           : undefined
                       }

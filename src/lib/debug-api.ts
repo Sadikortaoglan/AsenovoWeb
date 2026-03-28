@@ -5,6 +5,7 @@
 
 import apiClient from './api'
 import { tokenStorage } from './api'
+import { isKnownRoleInput, normalizeRole } from './roles'
 
 export interface DebugRequestOptions {
   url: string
@@ -136,12 +137,16 @@ ${fullRequest.body || '{}'}
           const payload = JSON.parse(atob(token.split('.')[1]))
           if (payload.exp && Date.now() / 1000 > payload.exp) {
             console.error('    3. ❌ Token is EXPIRED')
-          } else if (!['SYSTEM_ADMIN', 'STAFF_ADMIN', 'STAFF_USER', 'CARI_USER'].includes(payload.role)) {
+          } else if (!isKnownRoleInput(payload.role)) {
             console.error('    4. ❌ Invalid role in token:', payload.role)
           } else {
+            const canonicalRole = normalizeRole(String(payload.role))
             console.error('    5. ❓ Token looks valid - check backend permissions/role requirements')
-            console.error('    6. ❓ Check if endpoint requires specific role (SYSTEM_ADMIN/STAFF_ADMIN/STAFF_USER/CARI_USER)')
-            console.error('    7. ❓ Check CORS configuration')
+            console.error('    6. ℹ️ Canonical role:', canonicalRole)
+            console.error(
+              '    7. ❓ Check if endpoint requires specific role (PLATFORM_ADMIN/TENANT_ADMIN/STAFF_USER/CARI_USER)'
+            )
+            console.error('    8. ❓ Check CORS configuration')
           }
         } catch (e) {
           console.error('    3. ❌ Token is invalid/corrupted')

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { userService, type User } from '@/services/user.service'
+import { type FormEvent, useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
+import { userService, type TenantManageableRole, type User } from '@/services/user.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TableResponsive } from '@/components/ui/table-responsive'
@@ -25,410 +26,713 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Edit, Trash2 } from 'lucide-react'
+import { getUserFriendlyErrorMessage } from '@/lib/api-error-handler'
+
+type ManageableRoleFilter = TenantManageableRole | 'ALL'
+type StatusFilter = 'ALL' | 'ACTIVE' | 'PASSIVE'
+type UserActionType = 'disable' | 'enable'
+type UserFormErrors = Partial<Record<'username' | 'password' | 'role' | 'linkedB2BUnitId', string>>
+
+const PAGE_SIZE = 20
+
+const MANAGEABLE_ROLES: TenantManageableRole[] = ['STAFF_USER', 'CARI_USER']
+
+function roleLabel(role?: string | null) {
+  if (role === 'STAFF_USER') return 'Staff User'
+  if (role === 'CARI_USER') return 'Cari User'
+  if (role === 'TENANT_ADMIN') return 'Tenant Admin'
+  if (role === 'PLATFORM_ADMIN') return 'Platform Admin'
+  return role || '-'
+}
+
+function formatDateTime(value?: string | null): string {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('tr-TR')
+}
+
+function isManageableUser(user: User): boolean {
+  return MANAGEABLE_ROLES.includes(user.role as TenantManageableRole)
+}
+
+function normalizeEditableRole(role?: User['role']): TenantManageableRole {
+  return role === 'CARI_USER' ? 'CARI_USER' : 'STAFF_USER'
+}
+
+function validateUserForm(
+  formData: {
+    username: string
+    password: string
+    role: TenantManageableRole
+    enabled: boolean
+    linkedB2BUnitId: number | null
+  },
+  isEdit: boolean
+): UserFormErrors {
+  const errors: UserFormErrors = {}
+
+  if (!formData.username.trim()) {
+    errors.username = 'Kullanıcı adı zorunlu'
+  }
+
+  if (!isEdit && !formData.password.trim()) {
+    errors.password = 'Şifre zorunlu'
+  }
+
+  if (!formData.role) {
+    errors.role = 'Rol zorunlu'
+  }
+
+  if (formData.role === 'CARI_USER' && !formData.linkedB2BUnitId) {
+    errors.linkedB2BUnitId = 'Cari kullanıcı için bağlı cari seçimi zorunlu'
+  }
+
+  return errors
+}
 
 export function UsersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
-  const [userToDelete, setUserToDelete] = useState<number | null>(null)
+  const [searchInput, setSearchInput] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [roleFilter, setRoleFilter] = useState<ManageableRoleFilter>('ALL')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+  const [page, setPage] = useState(0)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    action: UserActionType
+    user: User | null
+  }>({
+    open: false,
+    action: 'disable',
+    user: null,
+  })
+
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
-  const { data: users, isLoading, error } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => userService.getAll(),
+  const usersQuery = useQuery({
+    queryKey: ['tenant-admin', 'users', page, PAGE_SIZE, searchTerm, roleFilter, statusFilter],
+    queryFn: () =>
+      userService.listTenantUsers({
+        page,
+        size: PAGE_SIZE,
+        search: searchTerm || undefined,
+        role: roleFilter === 'ALL' ? undefined : roleFilter,
+        enabled: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
+      }),
     retry: false,
   })
 
-  const usersArray = Array.isArray(users) ? users : []
-  
-  const activeSystemAdmins = usersArray.filter((u) => u.role === 'SYSTEM_ADMIN' && (u.enabled || u.active))
-  const isLastActiveSystemAdmin = (user: User) =>
-    user.role === 'SYSTEM_ADMIN' &&
-    (user.enabled || user.active) &&
-    activeSystemAdmins.length === 1
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => userService.update(id, { enabled: false }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-      toast({
-        title: 'Başarılı',
-        description: 'Kullanıcı başarıyla silindi.',
-        variant: 'success',
-      })
-    },
-    onError: () => {
-      toast({
-        title: 'Hata',
-        description: 'Kullanıcı silinirken bir hata oluştu.',
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const handleDelete = (id: number) => {
-    setUserToDelete(id)
-    setConfirmDeleteOpen(true)
-  }
-
-  const confirmDelete = () => {
-    if (userToDelete !== null) {
-      deleteMutation.mutate(userToDelete)
-      setUserToDelete(null)
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Kullanıcılar</h1>
-          <p className="text-muted-foreground">Sistem kullanıcılarının yönetimi (SYSTEM_ADMIN/STAFF_ADMIN)</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setSelectedUser(null)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Yeni Kullanıcı Ekle
-            </Button>
-          </DialogTrigger>
-          <UserFormDialog
-            user={selectedUser}
-            usersArray={usersArray}
-            onClose={() => setIsDialogOpen(false)}
-            onSuccess={() => {
-              setIsDialogOpen(false)
-              queryClient.invalidateQueries({ queryKey: ['users'] })
-            }}
-          />
-        </Dialog>
-      </div>
-
-      {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full" />
-          ))}
-        </div>
-      ) : error ? (
-        <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
-          <p className="text-sm text-yellow-800">
-            ⚠️ Kullanıcı yönetimi endpoint'i backend'de mevcut değil. Bu özellik yakında eklenecek.
-          </p>
-        </div>
-      ) : (
-        <TableResponsive
-          data={usersArray}
-          columns={[
-            {
-              key: 'username',
-              header: 'Kullanıcı Adı',
-              mobileLabel: 'Kullanıcı Adı',
-              mobilePriority: 10,
-              render: (user: User) => <span className="font-medium">{user.username}</span>,
-            },
-            {
-              key: 'role',
-              header: 'Rol',
-              mobileLabel: 'Rol',
-              mobilePriority: 9,
-              render: (user: User) => (
-                      <Badge variant={user.role === 'SYSTEM_ADMIN' ? 'default' : 'secondary'}>
-                        {user.role}
-                      </Badge>
-              ),
-            },
-            {
-              key: 'enabled',
-              header: 'Durum',
-              mobileLabel: 'Durum',
-              mobilePriority: 8,
-              render: (user: User) => (
-                      <Badge variant={user.enabled ? 'success' : 'destructive'}>
-                        {user.enabled ? 'Aktif' : 'Pasif'}
-                      </Badge>
-              ),
-            },
-            {
-              key: 'actions',
-              header: 'İşlemler',
-              mobileLabel: '',
-              mobilePriority: 1,
-              hideOnMobile: false,
-              render: (user: User) => (
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedUser(user)
-                            setIsDialogOpen(true)
-                          }}
-                    className="h-11 w-11 sm:h-10 sm:w-10"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                  {isLastActiveSystemAdmin(user) ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled
-                      title="En az bir aktif SYSTEM_ADMIN bulunmalıdır."
-                      className="h-11 w-11 sm:h-10 sm:w-10"
-                    >
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(user.id)}
-                      className="h-11 w-11 sm:h-10 sm:w-10"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                  )}
-        </div>
-              ),
-            },
-          ]}
-          keyExtractor={(user) => user.id.toString()}
-          emptyMessage="Kullanıcı bulunamadı"
-        />
-      )}
-
-      <ConfirmDialog
-        open={confirmDeleteOpen}
-        onOpenChange={setConfirmDeleteOpen}
-        title="Kullanıcıyı Pasif Yap"
-        message="Bu kullanıcıyı pasif yapmak istediğinize emin misiniz? Kullanıcı silinmeyecek, sadece pasif hale getirilecektir."
-        confirmText="Evet, Pasif Yap"
-        cancelText="İptal"
-        onConfirm={confirmDelete}
-        variant="destructive"
-      />
-    </div>
-  )
-}
-
-function UserFormDialog({
-  user,
-  onClose,
-  onSuccess,
-  usersArray = [],
-}: {
-  user: User | null
-  onClose: () => void
-  onSuccess: () => void
-  usersArray?: User[]
-}) {
-  const [formData, setFormData] = useState({
-    username: '',
-    password: '',
-    role: 'STAFF_USER' as 'SYSTEM_ADMIN' | 'STAFF_ADMIN' | 'STAFF_USER',
-    enabled: true,
-  })
-  const { toast } = useToast()
-  const normalizeEditableRole = (role?: User['role']) => {
-    if (role === 'SYSTEM_ADMIN' || role === 'STAFF_ADMIN' || role === 'STAFF_USER') {
-      return role
-    }
-    return 'STAFF_USER'
-  }
-
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        username: user.username || '',
-        password: '',
-        role: normalizeEditableRole(user.role),
-        enabled: user.enabled ?? true,
-      })
-    } else {
-      setFormData({
-        username: '',
-        password: '',
-        role: 'STAFF_USER',
-        enabled: true,
-      })
-    }
-  }, [user])
-
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => userService.create(data),
+    mutationFn: (payload: {
+      username: string
+      password: string
+      role: TenantManageableRole
+      enabled: boolean
+      linkedB2BUnitId: number | null
+    }) => userService.createTenantUser(payload),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-admin', 'users'] })
       toast({
         title: 'Başarılı',
-        description: 'Kullanıcı başarıyla eklendi.',
+        description: 'Kullanıcı başarıyla oluşturuldu.',
         variant: 'success',
       })
-      onClose()
-      onSuccess()
+      setIsDialogOpen(false)
+      setSelectedUser(null)
     },
-    onError: () => {
+    onError: (error: unknown) => {
       toast({
         title: 'Hata',
-        description: 'Kullanıcı eklenirken bir hata oluştu.',
+        description: getUserFriendlyErrorMessage(error),
         variant: 'destructive',
       })
     },
   })
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<typeof formData>) => {
-      if (!user) throw new Error('User ID required')
-      return userService.update(user.id, data)
-    },
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number
+      payload: {
+        username: string
+        password?: string
+        role: TenantManageableRole
+        enabled: boolean
+        linkedB2BUnitId: number | null
+      }
+    }) => userService.updateTenantUser(id, payload),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-admin', 'users'] })
       toast({
         title: 'Başarılı',
         description: 'Kullanıcı başarıyla güncellendi.',
         variant: 'success',
       })
-      onClose()
-      onSuccess()
+      setIsDialogOpen(false)
+      setSelectedUser(null)
     },
-    onError: () => {
+    onError: (error: unknown) => {
       toast({
         title: 'Hata',
-        description: 'Kullanıcı güncellenirken bir hata oluştu.',
+        description: getUserFriendlyErrorMessage(error),
         variant: 'destructive',
       })
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (user) {
-      const updateData: Partial<typeof formData> = {
-        username: formData.username,
-        role: formData.role,
-        enabled: formData.enabled,
-      }
-      if (formData.password && formData.password.trim()) {
-        updateData.password = formData.password.trim()
-      }
-      updateMutation.mutate(updateData)
-    } else {
-      if (!formData.password || !formData.password.trim()) {
-        toast({
-          title: 'Hata',
-          description: 'Şifre gerekli.',
-          variant: 'destructive',
-        })
-        return
-      }
-      createMutation.mutate({
-        ...formData,
-        password: formData.password.trim(),
+  const disableMutation = useMutation({
+    mutationFn: (id: number) => userService.disableTenantUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-admin', 'users'] })
+      toast({
+        title: 'Başarılı',
+        description: 'Kullanıcı pasifleştirildi.',
+        variant: 'success',
       })
+      setConfirmState({ open: false, action: 'disable', user: null })
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Hata',
+        description: getUserFriendlyErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const enableMutation = useMutation({
+    mutationFn: (id: number) => userService.enableTenantUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-admin', 'users'] })
+      toast({
+        title: 'Başarılı',
+        description: 'Kullanıcı aktifleştirildi.',
+        variant: 'success',
+      })
+      setConfirmState({ open: false, action: 'disable', user: null })
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Hata',
+        description: getUserFriendlyErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const users = usersQuery.data?.content || []
+  const totalPages = usersQuery.data?.totalPages || 1
+  const totalElements = usersQuery.data?.totalElements || 0
+  const isActionPending =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    disableMutation.isPending ||
+    enableMutation.isPending
+
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setPage(0)
+    setSearchTerm(searchInput.trim())
+  }
+
+  const resetFilters = () => {
+    setSearchInput('')
+    setSearchTerm('')
+    setRoleFilter('ALL')
+    setStatusFilter('ALL')
+    setPage(0)
+  }
+
+  const openCreateDialog = () => {
+    setSelectedUser(null)
+    setIsDialogOpen(true)
+  }
+
+  const openEditDialog = (user: User) => {
+    if (!isManageableUser(user)) return
+    setSelectedUser(user)
+    setIsDialogOpen(true)
+  }
+
+  const openToggleConfirm = (user: User, action: UserActionType) => {
+    if (!isManageableUser(user)) return
+    setConfirmState({
+      open: true,
+      action,
+      user,
+    })
+  }
+
+  const handleConfirmAction = () => {
+    const targetUser = confirmState.user
+    if (!targetUser?.id) return
+
+    if (confirmState.action === 'disable') {
+      disableMutation.mutate(targetUser.id)
+      return
     }
+
+    enableMutation.mutate(targetUser.id)
   }
 
   return (
-    <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">Kullanıcı Yönetimi</h1>
+          <p className="text-muted-foreground">Tenant kullanıcıları (Staff/Cari) yönetimi</p>
+        </div>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open)
+            if (!open) {
+              setSelectedUser(null)
+            }
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              Kullanıcı Ekle
+            </Button>
+          </DialogTrigger>
+          <TenantUserFormDialog
+            user={selectedUser}
+            pending={createMutation.isPending || updateMutation.isPending}
+            onClose={() => {
+              setIsDialogOpen(false)
+              setSelectedUser(null)
+            }}
+            onSubmit={(payload) => {
+              if (selectedUser) {
+                updateMutation.mutate({
+                  id: selectedUser.id,
+                  payload,
+                })
+                return
+              }
+              createMutation.mutate({
+                ...payload,
+                password: payload.password || '',
+              })
+            }}
+          />
+        </Dialog>
+      </div>
+
+      <form className="flex flex-wrap items-end gap-3" onSubmit={handleSearchSubmit}>
+        <div className="min-w-[240px] flex-1 space-y-2">
+          <Label htmlFor="users-search">Ara</Label>
+          <Input
+            id="users-search"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Kullanıcı adı ile arayın"
+          />
+        </div>
+        <div className="w-full space-y-2 sm:w-[220px]">
+          <Label>Rol</Label>
+          <Select
+            value={roleFilter}
+            onValueChange={(value: ManageableRoleFilter) => {
+              setPage(0)
+              setRoleFilter(value)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tümü</SelectItem>
+              <SelectItem value="STAFF_USER">Staff User</SelectItem>
+              <SelectItem value="CARI_USER">Cari User</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-full space-y-2 sm:w-[200px]">
+          <Label>Durum</Label>
+          <Select
+            value={statusFilter}
+            onValueChange={(value: StatusFilter) => {
+              setPage(0)
+              setStatusFilter(value)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tümü</SelectItem>
+              <SelectItem value="ACTIVE">Aktif</SelectItem>
+              <SelectItem value="PASSIVE">Pasif</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button type="submit">Ara</Button>
+          <Button type="button" variant="outline" onClick={resetFilters}>
+            Temizle
+          </Button>
+        </div>
+      </form>
+
+      {usersQuery.isLoading ? (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      ) : usersQuery.isError ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          {getUserFriendlyErrorMessage(usersQuery.error)}
+        </div>
+      ) : (
+        <>
+          <TableResponsive
+            data={users}
+            columns={[
+              {
+                key: 'username',
+                header: 'Kullanıcı Adı',
+                mobileLabel: 'Kullanıcı Adı',
+                mobilePriority: 10,
+                render: (user: User) => <span className="font-medium">{user.username}</span>,
+              },
+              {
+                key: 'role',
+                header: 'Rol',
+                mobileLabel: 'Rol',
+                mobilePriority: 9,
+                render: (user: User) => (
+                  <Badge variant={user.role === 'CARI_USER' ? 'secondary' : 'default'}>
+                    {roleLabel(user.role)}
+                  </Badge>
+                ),
+              },
+              {
+                key: 'enabled',
+                header: 'Durum',
+                mobileLabel: 'Durum',
+                mobilePriority: 8,
+                render: (user: User) => (
+                  <Badge variant={user.enabled ? 'success' : 'destructive'}>
+                    {user.enabled ? 'Aktif' : 'Pasif'}
+                  </Badge>
+                ),
+              },
+              {
+                key: 'linkedB2BUnitName',
+                header: 'Bağlı Cari',
+                mobileLabel: 'Bağlı Cari',
+                mobilePriority: 7,
+                render: (user: User) => user.linkedB2BUnitName || '-',
+              },
+              {
+                key: 'createdAt',
+                header: 'Oluşturulma Tarihi',
+                mobileLabel: 'Tarih',
+                mobilePriority: 6,
+                hideOnMobile: true,
+                render: (user: User) => formatDateTime(user.createdAt),
+              },
+              {
+                key: 'actions',
+                header: 'İşlem',
+                mobileLabel: '',
+                mobilePriority: 1,
+                hideOnMobile: false,
+                render: (user: User) =>
+                  isManageableUser(user) ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
+                        Düzenle
+                      </Button>
+                      {user.enabled ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isActionPending}
+                          onClick={() => openToggleConfirm(user, 'disable')}
+                        >
+                          Pasifleştir
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isActionPending}
+                          onClick={() => openToggleConfirm(user, 'enable')}
+                        >
+                          Aktifleştir
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Bu rol düzenlenemez</span>
+                  ),
+              },
+            ]}
+            keyExtractor={(user) => user.id.toString()}
+            emptyMessage="Kullanıcı bulunamadı"
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+            <span className="text-muted-foreground">
+              Toplam {totalElements} kayıt • Sayfa {Math.min(page + 1, totalPages)} / {Math.max(totalPages, 1)}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page <= 0 || usersQuery.isFetching}
+                onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+              >
+                Önceki
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page + 1 >= totalPages || usersQuery.isFetching}
+                onClick={() => setPage((prev) => prev + 1)}
+              >
+                Sonraki
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
+        title={confirmState.action === 'disable' ? 'Kullanıcıyı Pasifleştir' : 'Kullanıcıyı Aktifleştir'}
+        message={
+          confirmState.action === 'disable'
+            ? `"${confirmState.user?.username || '-'}" kullanıcısını pasifleştirmek istiyor musunuz?`
+            : `"${confirmState.user?.username || '-'}" kullanıcısını aktifleştirmek istiyor musunuz?`
+        }
+        confirmText={confirmState.action === 'disable' ? 'Evet, Pasifleştir' : 'Evet, Aktifleştir'}
+        cancelText="İptal"
+        variant={confirmState.action === 'disable' ? 'destructive' : 'default'}
+        onConfirm={handleConfirmAction}
+      />
+    </div>
+  )
+}
+
+function TenantUserFormDialog({
+  user,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  user: User | null
+  pending: boolean
+  onClose: () => void
+  onSubmit: (payload: {
+    username: string
+    password?: string
+    role: TenantManageableRole
+    enabled: boolean
+    linkedB2BUnitId: number | null
+  }) => void
+}) {
+  const isEdit = Boolean(user)
+  const { toast } = useToast()
+
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+    role: 'STAFF_USER' as TenantManageableRole,
+    enabled: true,
+    linkedB2BUnitId: null as number | null,
+  })
+  const [errors, setErrors] = useState<UserFormErrors>({})
+
+  const b2bUnitLookupQuery = useQuery({
+    queryKey: ['tenant-admin', 'users', 'b2bunits', 'lookup'],
+    queryFn: () => userService.lookupB2BUnits(),
+  })
+
+  useEffect(() => {
+    if (!user) {
+      setFormData({
+        username: '',
+        password: '',
+        role: 'STAFF_USER',
+        enabled: true,
+        linkedB2BUnitId: null,
+      })
+      setErrors({})
+      return
+    }
+
+    setFormData({
+      username: user.username || '',
+      password: '',
+      role: normalizeEditableRole(user.role),
+      enabled: Boolean(user.enabled),
+      linkedB2BUnitId: user.linkedB2BUnitId ?? null,
+    })
+    setErrors({})
+  }, [user])
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const validationErrors = validateUserForm(formData, isEdit)
+    setErrors(validationErrors)
+    if (Object.keys(validationErrors).length > 0) {
+      return
+    }
+
+    if (!isEdit && !formData.password.trim()) {
+      toast({
+        title: 'Hata',
+        description: 'Şifre zorunlu',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const payload = {
+      username: formData.username.trim(),
+      password: formData.password.trim() ? formData.password.trim() : undefined,
+      role: formData.role,
+      enabled: formData.enabled,
+      linkedB2BUnitId: formData.role === 'CARI_USER' ? formData.linkedB2BUnitId : null,
+    }
+
+    onSubmit(payload)
+  }
+
+  return (
+    <DialogContent className="max-w-2xl">
       <DialogHeader>
-        <DialogTitle>{user ? 'Kullanıcı Düzenle' : 'Yeni Kullanıcı Ekle'}</DialogTitle>
+        <DialogTitle>{isEdit ? 'Kullanıcı Düzenle' : 'Kullanıcı Ekle'}</DialogTitle>
         <DialogDescription>
-          {user ? 'Kullanıcı bilgilerini güncelleyin' : 'Yeni kullanıcı bilgilerini girin'}
+          {isEdit ? 'Kullanıcı bilgilerini güncelleyin.' : 'Yeni kullanıcı bilgilerini girin.'}
         </DialogDescription>
       </DialogHeader>
-      <form onSubmit={handleSubmit}>
-        <div className="grid gap-4 py-4">
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="space-y-2">
+          <Label htmlFor="tenant-user-username">Kullanıcı Adı *</Label>
+          <Input
+            id="tenant-user-username"
+            value={formData.username}
+            onChange={(event) => {
+              setFormData((prev) => ({ ...prev, username: event.target.value }))
+              setErrors((prev) => ({ ...prev, username: undefined }))
+            }}
+          />
+          {errors.username ? <p className="text-sm text-destructive">{errors.username}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="tenant-user-password">{isEdit ? 'Yeni Şifre' : 'Şifre *'}</Label>
+          <Input
+            id="tenant-user-password"
+            type="password"
+            value={formData.password}
+            onChange={(event) => {
+              setFormData((prev) => ({ ...prev, password: event.target.value }))
+              setErrors((prev) => ({ ...prev, password: undefined }))
+            }}
+            placeholder={isEdit ? 'Değiştirmek istemiyorsanız boş bırakın' : ''}
+          />
+          {errors.password ? <p className="text-sm text-destructive">{errors.password}</p> : null}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="username">Kullanıcı Adı *</Label>
-            <Input
-              id="username"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              required
-              className="w-full"
-            />
+            <Label>Rol *</Label>
+            <Select
+              value={formData.role}
+              onValueChange={(value: TenantManageableRole) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  role: value,
+                  linkedB2BUnitId: value === 'CARI_USER' ? prev.linkedB2BUnitId : null,
+                }))
+                setErrors((prev) => ({
+                  ...prev,
+                  role: undefined,
+                  linkedB2BUnitId: undefined,
+                }))
+              }}
+            >
+              <SelectTrigger className={errors.role ? 'border-destructive' : ''}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="STAFF_USER">Staff User</SelectItem>
+                <SelectItem value="CARI_USER">Cari User</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.role ? <p className="text-sm text-destructive">{errors.role}</p> : null}
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="password">{user ? 'Yeni Şifre (boş bırakabilirsiniz)' : 'Şifre *'}</Label>
-            <Input
-              id="password"
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required={!user}
-              className="w-full"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="role">Rol *</Label>
-              <Select
-                value={formData.role}
-                onValueChange={(value: 'SYSTEM_ADMIN' | 'STAFF_ADMIN' | 'STAFF_USER') =>
-                  setFormData({ ...formData, role: value })
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SYSTEM_ADMIN">SYSTEM_ADMIN</SelectItem>
-                  <SelectItem value="STAFF_ADMIN">STAFF_ADMIN</SelectItem>
-                  <SelectItem value="STAFF_USER">STAFF_USER</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {user && (
-              <div className="space-y-2">
-                <Label htmlFor="enabled">Durum</Label>
-                <Select
-                  value={formData.enabled ? 'true' : 'false'}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, enabled: value === 'true' })
-                  }
-                  disabled={(() => {
-                    const activeSystemAdmins = usersArray.filter(u => 
-                      u.role === 'SYSTEM_ADMIN' && 
-                      (u.enabled || u.active) && 
-                      u.id !== user.id
-                    )
-                    return user.role === 'SYSTEM_ADMIN' && 
-                           (user.enabled || user.active) && 
-                           activeSystemAdmins.length === 0
-                  })()}
-                >
-                  <SelectTrigger 
-                    className="w-full"
-                    title={(() => {
-                      const activeSystemAdmins = usersArray.filter(u => 
-                        u.role === 'SYSTEM_ADMIN' && 
-                        (u.enabled || u.active) && 
-                        u.id !== user.id
-                      )
-                      if (user.role === 'SYSTEM_ADMIN' && 
-                          (user.enabled || user.active) && 
-                          activeSystemAdmins.length === 0) {
-                        return 'En az bir aktif SYSTEM_ADMIN bulunmalıdır.'
-                      }
-                      return ''
-                    })()}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">Aktif</SelectItem>
-                    <SelectItem value="false">Pasif</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <Label>Durum</Label>
+            <Select
+              value={formData.enabled ? 'true' : 'false'}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, enabled: value === 'true' }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="true">Aktif</SelectItem>
+                <SelectItem value="false">Pasif</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
+
+        {formData.role === 'CARI_USER' ? (
+          <div className="space-y-2">
+            <Label>Bağlı Cari *</Label>
+            <Select
+              value={formData.linkedB2BUnitId ? String(formData.linkedB2BUnitId) : undefined}
+              onValueChange={(value) => {
+                setFormData((prev) => ({ ...prev, linkedB2BUnitId: Number(value) }))
+                setErrors((prev) => ({ ...prev, linkedB2BUnitId: undefined }))
+              }}
+            >
+              <SelectTrigger className={errors.linkedB2BUnitId ? 'border-destructive' : ''}>
+                <SelectValue
+                  placeholder={
+                    b2bUnitLookupQuery.isLoading ? 'Cari listesi yükleniyor...' : 'Bağlı cari seçin'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {(b2bUnitLookupQuery.data || []).map((option) => (
+                  <SelectItem key={option.id} value={String(option.id)}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.linkedB2BUnitId ? (
+              <p className="text-sm text-destructive">{errors.linkedB2BUnitId}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto min-h-[44px]">
+          <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
             İptal
           </Button>
-          <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="w-full sm:w-auto min-h-[44px]">
-            {user ? 'Güncelle' : 'Ekle'}
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Kaydediliyor...' : isEdit ? 'Güncelle' : 'Kaydet'}
           </Button>
         </DialogFooter>
       </form>

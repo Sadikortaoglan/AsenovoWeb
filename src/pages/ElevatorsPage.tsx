@@ -52,7 +52,7 @@ export function ElevatorsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const canImportElevators = hasAnyRole(['SYSTEM_ADMIN', 'STAFF_ADMIN', 'STAFF_USER'])
+  const canImportElevators = hasAnyRole(['PLATFORM_ADMIN', 'TENANT_ADMIN', 'STAFF_USER'])
 
   const { data: elevators, isLoading } = useQuery({
     queryKey: ['elevators'],

@@ -39,8 +39,8 @@ export function ElevatorQRValidationDialog({
   const [isMobile, setIsMobile] = useState(false)
   const [viewSummary, setViewSummary] = useState<QRElevatorSummary | null>(null)
 
-  // Check if user is ADMIN (can bypass QR)
-  const isAdmin = hasRole('PATRON') // PATRON = ADMIN in this system
+  // Check if user is tenant admin (can bypass QR)
+  const isAdmin = hasRole('TENANT_ADMIN')
 
   // Detect mobile device
   useEffect(() => {
