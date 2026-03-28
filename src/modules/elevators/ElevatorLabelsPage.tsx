@@ -15,6 +15,13 @@ import { useToast } from '@/components/ui/use-toast'
 import { PaginatedTable } from '@/modules/shared/components/PaginatedTable'
 import { elevatorDocumentsService } from './elevator-documents.service'
 
+function formatDateTimeDisplay(value?: string): string {
+  if (!value) return '-'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleString('tr-TR')
+}
+
 export function ElevatorLabelsPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -88,7 +95,7 @@ export function ElevatorLabelsPage() {
 
         <PaginatedTable
           pageData={query.data}
-          loading={query.isLoading}
+          loading={query.isLoading || query.isFetching}
           onPageChange={setPage}
           mobileCardView
           columns={[
@@ -129,14 +136,14 @@ export function ElevatorLabelsPage() {
               header: 'Başlangıç',
               mobileLabel: 'Başlangıç',
               mobilePriority: 8,
-              render: (r) => r.startAt,
+              render: (r) => formatDateTimeDisplay(r.startAt),
             },
             {
               key: 'endAt',
               header: 'Bitiş',
               mobileLabel: 'Bitiş',
               mobilePriority: 7,
-              render: (r) => r.endAt,
+              render: (r) => formatDateTimeDisplay(r.endAt),
             },
             {
               key: 'actions',

@@ -1,7 +1,7 @@
 import apiClient from '@/lib/api'
 import { unwrapResponse, type ApiResponse } from '@/lib/api-response'
 import { resolveApiBaseUrl } from '@/lib/api-base-url'
-import { getPage, toMultipartPayload } from '@/modules/shared/api'
+import { getPage } from '@/modules/shared/api'
 import type { SpringPage } from '@/modules/shared/types'
 
 export interface ElevatorLabel {
@@ -23,6 +23,19 @@ export interface ElevatorLookupOption {
   name: string
   facilityName?: string
   identityNumber?: string
+}
+
+interface ElevatorLabelPayload {
+  elevatorId: number
+  labelName: string
+  startAt: string
+  endAt: string
+  startDate?: string
+  endDate?: string
+  labelDate?: string
+  expiryDate?: string
+  description?: string
+  filePath?: string
 }
 
 export interface ElevatorContract {
@@ -56,6 +69,79 @@ function emptyPage<T>(page: number, size: number): SpringPage<T> {
 
 function resolveTenantApiBaseUrl(): string | undefined {
   return resolveApiBaseUrl()
+}
+
+function cleanString(value?: string | null): string | undefined {
+  if (value == null) return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function normalizeDateTimeForApi(value?: string | null): string {
+  const normalized = cleanString(value) || ''
+  if (!normalized) return ''
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized)) return `${normalized}:00`
+  return normalized
+}
+
+function normalizeElevatorLabel(raw: ElevatorLabel): ElevatorLabel {
+  const source = raw as any
+  const startRaw = source.startAt ?? source.startDate ?? source.labelDate ?? ''
+  const endRaw = source.endAt ?? source.endDate ?? source.expiryDate ?? ''
+  const filePathRaw = source.filePath ?? source.fileUrl ?? source.attachmentUrl ?? ''
+  return {
+    ...raw,
+    id: raw.id != null ? Number(raw.id) : undefined,
+    elevatorId: raw.elevatorId != null ? Number(raw.elevatorId) : 0,
+    elevatorName: typeof raw.elevatorName === 'string' ? raw.elevatorName.trim() : undefined,
+    facilityName: typeof raw.facilityName === 'string' ? raw.facilityName.trim() : undefined,
+    buildingName: typeof raw.buildingName === 'string' ? raw.buildingName.trim() : undefined,
+    identityNumber: typeof raw.identityNumber === 'string' ? raw.identityNumber.trim() : undefined,
+    labelName: typeof raw.labelName === 'string' ? raw.labelName : '',
+    startAt: typeof startRaw === 'string' ? startRaw : '',
+    endAt: typeof endRaw === 'string' ? endRaw : '',
+    description: typeof raw.description === 'string' ? raw.description : '',
+    filePath: typeof filePathRaw === 'string' ? filePathRaw : undefined,
+  }
+}
+
+function toElevatorLabelPayload(payload: ElevatorLabel): ElevatorLabelPayload {
+  const startAt = normalizeDateTimeForApi(payload.startAt)
+  const endAt = normalizeDateTimeForApi(payload.endAt)
+  return {
+    elevatorId: Number(payload.elevatorId),
+    labelName: cleanString(payload.labelName) || '',
+    startAt,
+    endAt,
+    startDate: startAt,
+    endDate: endAt,
+    labelDate: startAt,
+    expiryDate: endAt,
+    description: cleanString(payload.description),
+    filePath: cleanString(payload.filePath),
+  }
+}
+
+function toElevatorLabelFormData(payload: ElevatorLabelPayload, file?: File | null): FormData {
+  const form = new FormData()
+  form.append('elevatorId', String(payload.elevatorId))
+  form.append('labelName', payload.labelName)
+  form.append('startAt', payload.startAt)
+  form.append('endAt', payload.endAt)
+  if (payload.startDate) form.append('startDate', payload.startDate)
+  if (payload.endDate) form.append('endDate', payload.endDate)
+  if (payload.labelDate) form.append('labelDate', payload.labelDate)
+  if (payload.expiryDate) form.append('expiryDate', payload.expiryDate)
+  if (payload.description) {
+    form.append('description', payload.description)
+  }
+  if (payload.filePath) {
+    form.append('filePath', payload.filePath)
+  }
+  if (file instanceof File) {
+    form.append('file', file)
+  }
+  return form
 }
 
 function normalizePageResponse<T>(payload: unknown, page: number, size: number): SpringPage<T> {
@@ -126,25 +212,52 @@ export const elevatorDocumentsService = {
           return true
         })
       )
-      const { data } = await apiClient.get<ApiResponse<SpringPage<ElevatorLabel>> | SpringPage<ElevatorLabel>>('/elevator-labels', {
-        baseURL: resolveTenantApiBaseUrl(),
-        params: cleanedParams,
-      })
-      return normalizePageResponse<ElevatorLabel>(data, page, size)
+      const { data } = await apiClient.get<ApiResponse<SpringPage<ElevatorLabel>> | SpringPage<ElevatorLabel>>(
+        '/elevator-labels',
+        {
+          baseURL: resolveTenantApiBaseUrl(),
+          params: cleanedParams,
+        },
+      )
+      const normalizedPage = normalizePageResponse<ElevatorLabel>(data, page, size)
+      return {
+        ...normalizedPage,
+        content: normalizedPage.content.map((label) => normalizeElevatorLabel(label)),
+      }
     } catch (error: any) {
       if (isMissingEndpointError(error)) return emptyPage<ElevatorLabel>(page, size)
       throw error
     }
   },
-  createLabel(payload: ElevatorLabel, file?: File | null): Promise<ElevatorLabel> {
+
+  getLabelById(id: number): Promise<ElevatorLabel> {
     return apiClient
-      .post<ApiResponse<ElevatorLabel>>('/elevator-labels', toMultipartPayload(payload, file))
-      .then((r) => unwrapResponse(r.data))
+      .get<ApiResponse<ElevatorLabel>>(`/elevator-labels/${id}`, {
+        baseURL: resolveTenantApiBaseUrl(),
+      })
+      .then((response) => normalizeElevatorLabel(unwrapResponse(response.data)))
+  },
+
+  createLabel(payload: ElevatorLabel, file?: File | null): Promise<ElevatorLabel> {
+    const requestPayload = toElevatorLabelPayload(payload)
+    if (!Number.isFinite(requestPayload.elevatorId) || requestPayload.elevatorId <= 0) {
+      return Promise.reject(new Error('Asansör seçimi zorunlu'))
+    }
+    return apiClient
+      .post<ApiResponse<ElevatorLabel>>('/elevator-labels', toElevatorLabelFormData(requestPayload, file))
+      .then((r) => normalizeElevatorLabel(unwrapResponse(r.data)))
   },
   updateLabel(id: number, payload: ElevatorLabel, file?: File | null): Promise<ElevatorLabel> {
+    const requestPayload = toElevatorLabelPayload(payload)
+    if (!Number.isFinite(requestPayload.elevatorId) || requestPayload.elevatorId <= 0) {
+      return Promise.reject(new Error('Asansör seçimi zorunlu'))
+    }
     return apiClient
-      .put<ApiResponse<ElevatorLabel>>(`/elevator-labels/${id}`, toMultipartPayload(payload, file))
-      .then((r) => unwrapResponse(r.data))
+      .put<ApiResponse<ElevatorLabel>>(
+        `/elevator-labels/${id}`,
+        toElevatorLabelFormData(requestPayload, file),
+      )
+      .then((r) => normalizeElevatorLabel(unwrapResponse(r.data)))
   },
   deleteLabel(id: number): Promise<void> {
     return apiClient.delete(`/elevator-labels/${id}`).then(() => undefined)

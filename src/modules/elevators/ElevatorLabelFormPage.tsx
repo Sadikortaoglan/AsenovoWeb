@@ -23,6 +23,41 @@ const initialForm: ElevatorLabel = {
   description: '',
 }
 
+function toDateTimeLocalInput(value?: string): string {
+  if (!value) return ''
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
+    return trimmed
+  }
+
+  const parsed = new Date(trimmed)
+  if (Number.isNaN(parsed.getTime())) {
+    return trimmed.includes('T') ? trimmed.slice(0, 16) : ''
+  }
+
+  const year = parsed.getFullYear()
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
+  const hour = String(parsed.getHours()).padStart(2, '0')
+  const minute = String(parsed.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hour}:${minute}`
+}
+
+function normalizeLabelForm(raw?: ElevatorLabel | null): ElevatorLabel {
+  if (!raw) return { ...initialForm }
+  return {
+    ...raw,
+    elevatorId: raw.elevatorId != null ? Number(raw.elevatorId) : 0,
+    labelName: raw.labelName || '',
+    startAt: toDateTimeLocalInput(raw.startAt),
+    endAt: toDateTimeLocalInput(raw.endAt),
+    description: raw.description || '',
+  }
+}
+
 export function ElevatorLabelFormPage() {
   const { id } = useParams<{ id: string }>()
   const isEdit = !!id
@@ -30,24 +65,21 @@ export function ElevatorLabelFormPage() {
   const location = useLocation()
   const { toast } = useToast()
   const stateRecord = (location.state as { record?: ElevatorLabel } | null)?.record
-  const [form, setForm] = useState<ElevatorLabel>(stateRecord || initialForm)
+  const [form, setForm] = useState<ElevatorLabel>(normalizeLabelForm(stateRecord))
   const [file, setFile] = useState<File | null>(null)
   const [showValidation, setShowValidation] = useState(false)
 
-  const fallbackQuery = useQuery({
-    queryKey: ['elevator-label-edit-fallback', id],
-    enabled: isEdit && !stateRecord,
-    queryFn: async () => {
-      const page = await elevatorDocumentsService.getLabels(0, 200)
-      return page.content.find((x) => x.id === Number(id)) || null
-    },
+  const detailQuery = useQuery({
+    queryKey: ['elevator-label', id],
+    enabled: isEdit && Number.isFinite(Number(id)) && Number(id) > 0,
+    queryFn: () => elevatorDocumentsService.getLabelById(Number(id)),
   })
 
   useEffect(() => {
-    if (fallbackQuery.data) {
-      setForm(fallbackQuery.data)
+    if (detailQuery.data) {
+      setForm(normalizeLabelForm(detailQuery.data))
     }
-  }, [fallbackQuery.data])
+  }, [detailQuery.data])
 
   const elevatorsLookupQuery = useQuery({
     queryKey: ['elevators', 'lookup', 'label-form'],
@@ -141,15 +173,24 @@ export function ElevatorLabelFormPage() {
         <div className="space-y-2">
           <Label>Etiket Adı</Label>
           <Input value={form.labelName || ''} onChange={(e) => setForm({ ...form, labelName: e.target.value })} />
+          {showValidation && !((form.labelName || '').trim()) ? (
+            <p className="text-sm text-destructive">Etiket adı zorunlu</p>
+          ) : null}
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Start At</Label>
+            <Label>Başlangıç Tarihi</Label>
             <Input type="datetime-local" value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} />
+            {showValidation && !form.startAt ? (
+              <p className="text-sm text-destructive">Başlangıç tarihi zorunlu</p>
+            ) : null}
           </div>
           <div className="space-y-2">
-            <Label>End At</Label>
+            <Label>Bitiş Tarihi</Label>
             <Input type="datetime-local" value={form.endAt} onChange={(e) => setForm({ ...form, endAt: e.target.value })} />
+            {showValidation && !form.endAt ? (
+              <p className="text-sm text-destructive">Bitiş tarihi zorunlu</p>
+            ) : null}
           </div>
         </div>
         <div className="space-y-2">
@@ -158,7 +199,15 @@ export function ElevatorLabelFormPage() {
         </div>
         <div className="space-y-2">
           <Label>Dosya</Label>
-          <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          <Input
+            type="file"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          {file ? (
+            <p className="text-xs text-muted-foreground">Seçilen dosya: {file.name}</p>
+          ) : form.filePath ? (
+            <p className="text-xs text-muted-foreground break-all">Mevcut dosya: {form.filePath}</p>
+          ) : null}
         </div>
         <div className="flex justify-end">
           <Button onClick={handleSubmit} disabled={saveMutation.isPending}>
