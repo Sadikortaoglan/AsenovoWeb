@@ -55,6 +55,7 @@ import { SystemAdminDashboardPage } from './modules/system-admin/SystemAdminDash
 import { SystemAdminTenantDetailPage } from './modules/system-admin/SystemAdminTenantDetailPage'
 import { SystemAdminTenantJobsPage } from './modules/system-admin/SystemAdminTenantJobsPage'
 import { SystemAdminTenantJobDetailPage } from './modules/system-admin/SystemAdminTenantJobDetailPage'
+import { SystemAdminTenantUsersPage } from './modules/system-admin/SystemAdminTenantUsersPage'
 import { ForbiddenPage } from './pages/ForbiddenPage'
 import { QrCodesPage } from './modules/qr-codes/QrCodesPage'
 
@@ -267,6 +268,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute requireRole="PLATFORM_ADMIN" requireScopeType="PLATFORM">
               <SystemAdminTenantDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="system-admin/tenants/:id/users"
+          element={
+            <ProtectedRoute requireRole="PLATFORM_ADMIN" requireScopeType="PLATFORM">
+              <SystemAdminTenantUsersPage />
             </ProtectedRoute>
           }
         />

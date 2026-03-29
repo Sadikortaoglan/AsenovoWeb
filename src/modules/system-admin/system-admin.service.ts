@@ -1,5 +1,6 @@
 import apiClient from '@/lib/api'
-import { unwrapResponse, type ApiResponse } from '@/lib/api-response'
+import { unwrapArrayResponse, unwrapResponse, type ApiResponse } from '@/lib/api-response'
+import { normalizeRole, type AppRole } from '@/lib/roles'
 
 export interface SystemAdminTenant {
   id: number
@@ -50,6 +51,49 @@ export interface SystemAdminTenantJob {
   errorMessage?: string | null
 }
 
+export type SystemAdminTenantManageableRole = 'TENANT_ADMIN' | 'STAFF_USER' | 'CARI_USER'
+
+export interface SystemAdminTenantUser {
+  id: number
+  username: string
+  role: SystemAdminTenantManageableRole
+  linkedB2BUnitId?: number | null
+  linkedB2BUnitName?: string | null
+  enabled: boolean
+  active: boolean
+  createdAt?: string | null
+  lastLoginAt?: string | null
+}
+
+export interface SystemAdminTenantUserListParams {
+  page: number
+  size: number
+  search?: string
+  role?: SystemAdminTenantManageableRole
+  enabled?: boolean
+}
+
+export interface SystemAdminTenantUserListResult {
+  content: SystemAdminTenantUser[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}
+
+export interface SystemAdminTenantUserUpsertPayload {
+  username: string
+  password?: string
+  role: SystemAdminTenantManageableRole
+  enabled: boolean
+  linkedB2BUnitId?: number | null
+}
+
+export interface SystemAdminB2BUnitLookupOption {
+  id: number
+  name: string
+}
+
 function toNumber(value: unknown): number | undefined {
   if (value == null) return undefined
   const numericValue = Number(value)
@@ -60,6 +104,17 @@ function toText(value: unknown): string | undefined {
   if (value == null) return undefined
   const normalized = String(value).trim()
   return normalized.length > 0 ? normalized : undefined
+}
+
+function toBoolean(value: unknown): boolean | undefined {
+  if (value == null) return undefined
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true') return true
+    if (normalized === 'false') return false
+  }
+  return undefined
 }
 
 function unwrapPayload<T>(response: ApiResponse<T> | T): T {
@@ -110,6 +165,39 @@ function normalizeTenantJob(raw: any): SystemAdminTenantJob {
   }
 }
 
+function normalizeTenantUserRole(rawRole: unknown): SystemAdminTenantManageableRole {
+  const normalized = normalizeRole(toText(rawRole) || '') as AppRole
+  if (normalized === 'TENANT_ADMIN' || normalized === 'CARI_USER') return normalized
+  return 'STAFF_USER'
+}
+
+function normalizeTenantUser(raw: any): SystemAdminTenantUser {
+  const isActive = toBoolean(raw?.active ?? raw?.enabled) ?? true
+  return {
+    id: toNumber(raw?.id) ?? 0,
+    username: toText(raw?.username) || '',
+    role: normalizeTenantUserRole(raw?.role ?? raw?.userRole ?? raw?.authority),
+    linkedB2BUnitId:
+      toNumber(raw?.linkedB2BUnitId ?? raw?.linkedB2BUnit?.id ?? raw?.b2bUnitId ?? raw?.b2bUnit?.id) ??
+      null,
+    linkedB2BUnitName:
+      toText(raw?.linkedB2BUnitName ?? raw?.linkedB2BUnit?.name ?? raw?.b2bUnitName ?? raw?.b2bUnit?.name) ||
+      null,
+    enabled: isActive,
+    active: isActive,
+    createdAt: toText(raw?.createdAt ?? raw?.createdDate ?? raw?.created_at) || null,
+    lastLoginAt:
+      toText(
+        raw?.lastLoginAt ??
+          raw?.lastLoginDate ??
+          raw?.lastLoginTime ??
+          raw?.lastLogin ??
+          raw?.lastSignInAt ??
+          raw?.lastSeenAt
+      ) || null,
+  }
+}
+
 export const systemAdminService = {
   listTenants: async (): Promise<SystemAdminTenant[]> => {
     const { data } = await apiClient.get<ApiResponse<unknown> | unknown>('/system-admin/tenants')
@@ -155,5 +243,176 @@ export const systemAdminService = {
     const { data } = await apiClient.get<ApiResponse<unknown> | unknown>(`/system-admin/tenant-jobs/${id}`)
     const payload = unwrapPayload(data)
     return normalizeTenantJob(payload)
+  },
+
+  listTenantUsers: async (
+    tenantId: number,
+    params: SystemAdminTenantUserListParams
+  ): Promise<SystemAdminTenantUserListResult> => {
+    try {
+      const { data } = await apiClient.get<ApiResponse<unknown> | unknown>(
+        `/system-admin/tenants/${tenantId}/users`,
+        {
+          params: {
+            page: params.page,
+            size: params.size,
+            query: params.search,
+            search: params.search,
+            role: params.role,
+            enabled: params.enabled,
+          },
+        }
+      )
+
+      const payload = unwrapPayload(data) as any
+      const source = payload && typeof payload === 'object' ? payload : {}
+      const rows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(source.content)
+          ? source.content
+          : Array.isArray(source.items)
+            ? source.items
+            : Array.isArray(source.rows)
+              ? source.rows
+              : Array.isArray(source.data)
+                ? source.data
+                : []
+
+      const resolvedPage = Number(source.number ?? source.page ?? params.page)
+      const resolvedSize = Number(source.size ?? params.size)
+      const totalElements = Number(source.totalElements ?? source.total ?? rows.length)
+      const resolvedTotalPages = Number(
+        source.totalPages ??
+          (Number.isFinite(totalElements) && Number.isFinite(resolvedSize) && resolvedSize > 0
+            ? Math.ceil(totalElements / resolvedSize)
+            : 1)
+      )
+
+      return {
+        content: rows.map(normalizeTenantUser).filter((row) => row.id > 0),
+        page: Number.isFinite(resolvedPage) ? resolvedPage : params.page,
+        size: Number.isFinite(resolvedSize) ? resolvedSize : params.size,
+        totalElements: Number.isFinite(totalElements) ? totalElements : rows.length,
+        totalPages: Number.isFinite(resolvedTotalPages) && resolvedTotalPages > 0 ? resolvedTotalPages : 1,
+      }
+    } catch (error: any) {
+      if (error?.response?.status === 404 || error?.response?.data?.success === false) {
+        return {
+          content: [],
+          page: params.page,
+          size: params.size,
+          totalElements: 0,
+          totalPages: 1,
+        }
+      }
+      throw error
+    }
+  },
+
+  getTenantUserById: async (tenantId: number, userId: number): Promise<SystemAdminTenantUser> => {
+    const { data } = await apiClient.get<ApiResponse<unknown> | unknown>(
+      `/system-admin/tenants/${tenantId}/users/${userId}`
+    )
+    const payload = unwrapPayload(data)
+    return normalizeTenantUser(payload)
+  },
+
+  createTenantUser: async (
+    tenantId: number,
+    payload: SystemAdminTenantUserUpsertPayload
+  ): Promise<SystemAdminTenantUser> => {
+    const backendPayload: Record<string, unknown> = {
+      username: payload.username,
+      password: payload.password,
+      role: payload.role,
+      enabled: payload.enabled,
+      active: payload.enabled,
+    }
+
+    if (payload.linkedB2BUnitId != null) {
+      backendPayload.linkedB2BUnitId = payload.linkedB2BUnitId
+      backendPayload.b2bUnitId = payload.linkedB2BUnitId
+    }
+
+    const { data } = await apiClient.post<ApiResponse<unknown> | unknown>(
+      `/system-admin/tenants/${tenantId}/users`,
+      backendPayload
+    )
+    const unwrapped = unwrapPayload(data)
+    return normalizeTenantUser(unwrapped)
+  },
+
+  updateTenantUser: async (
+    tenantId: number,
+    userId: number,
+    payload: SystemAdminTenantUserUpsertPayload
+  ): Promise<SystemAdminTenantUser> => {
+    const backendPayload: Record<string, unknown> = {
+      username: payload.username,
+      role: payload.role,
+      enabled: payload.enabled,
+      active: payload.enabled,
+    }
+
+    const normalizedPassword = toText(payload.password)
+    if (normalizedPassword) {
+      backendPayload.password = normalizedPassword
+    }
+
+    if (payload.linkedB2BUnitId !== undefined) {
+      backendPayload.linkedB2BUnitId = payload.linkedB2BUnitId
+      backendPayload.b2bUnitId = payload.linkedB2BUnitId
+    }
+
+    const { data } = await apiClient.put<ApiResponse<unknown> | unknown>(
+      `/system-admin/tenants/${tenantId}/users/${userId}`,
+      backendPayload
+    )
+    const unwrapped = unwrapPayload(data)
+    return normalizeTenantUser(unwrapped)
+  },
+
+  disableTenantUser: async (tenantId: number, userId: number): Promise<void> => {
+    await apiClient.post(`/system-admin/tenants/${tenantId}/users/${userId}/disable`)
+  },
+
+  enableTenantUser: async (tenantId: number, userId: number): Promise<void> => {
+    await apiClient.post(`/system-admin/tenants/${tenantId}/users/${userId}/enable`)
+  },
+
+  resetTenantUserPassword: async (tenantId: number, userId: number, newPassword: string): Promise<void> => {
+    await apiClient.post(`/system-admin/tenants/${tenantId}/users/${userId}/reset-password`, {
+      newPassword,
+      password: newPassword,
+    })
+  },
+
+  lookupTenantB2BUnits: async (tenantId: number, query?: string): Promise<SystemAdminB2BUnitLookupOption[]> => {
+    const request = async (path: string) => {
+      const { data } = await apiClient.get<ApiResponse<SystemAdminB2BUnitLookupOption[]> | unknown>(path, {
+        params: { query },
+      })
+      return unwrapArrayResponse(data, true)
+    }
+
+    try {
+      return await request(`/system-admin/tenants/${tenantId}/b2b-units/lookup`)
+    } catch (error: any) {
+      if (error?.response?.status !== 404) throw error
+    }
+
+    try {
+      return await request(`/system-admin/tenants/${tenantId}/b2bunits/lookup`)
+    } catch (error: any) {
+      if (error?.response?.status !== 404) throw error
+    }
+
+    try {
+      return await request('/b2b-units/lookup')
+    } catch (error: any) {
+      if (error?.response?.status !== 404) throw error
+    }
+
+    return request('/b2bunits/lookup')
   },
 }
