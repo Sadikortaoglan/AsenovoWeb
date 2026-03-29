@@ -39,13 +39,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 function resolveScopeFromPayload(payload: Record<string, unknown> | null, role: AppRole, fallback: AuthScopeType): AuthScopeType {
-  if (role === 'PLATFORM_ADMIN') return 'PLATFORM'
-
   const rawScope = String(payload?.authScopeType || payload?.scope || '')
     .trim()
     .toUpperCase()
   if (rawScope === 'PLATFORM') return 'PLATFORM'
   if (rawScope === 'TENANT') return 'TENANT'
+
+  if (role === 'PLATFORM_ADMIN') {
+    if (resolveTenantId(payload) != null || resolveTenantSubdomain(payload)) {
+      return 'TENANT'
+    }
+    return 'PLATFORM'
+  }
+
   return fallback
 }
 
@@ -127,10 +133,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Bu alana erişim yetkiniz bulunmuyor.')
     }
 
-    if (scopeType === 'TENANT' && role === 'PLATFORM_ADMIN') {
-      throw new Error('Platform kullanıcıları bu ekrandan giriş yapamaz.')
-    }
-
     tokenStorage.setTokens(response.accessToken, response.refreshToken || response.accessToken)
 
     const authScopeType = resolveScopeFromPayload(payload, role, scopeType)
@@ -183,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const getDefaultRoute = (): string => {
     if (user?.authScopeType === 'PLATFORM') return '/system-admin/tenants'
+    if (user?.authScopeType === 'TENANT' && user?.role === 'PLATFORM_ADMIN') return '/tenant-admin/users'
     return getDefaultRouteForRole(user?.role)
   }
 

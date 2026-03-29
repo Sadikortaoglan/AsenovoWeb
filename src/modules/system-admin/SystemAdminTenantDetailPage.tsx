@@ -108,9 +108,6 @@ export function SystemAdminTenantDetailPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button variant="outline" onClick={() => navigate(`/system-admin/tenants/${tenantId}/users`)}>
-          Kullanıcıları Yönet
-        </Button>
         <Button variant="outline" onClick={() => navigate('/system-admin/tenant-jobs')}>
           Provisioning İşleri
         </Button>
