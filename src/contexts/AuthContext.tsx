@@ -6,11 +6,13 @@ import {
   getDefaultRouteForRole,
   hasScopedAnyRole,
   hasScopedRole,
+  isSystemAdminAlias,
   resolveRoleFromAuthSource,
   type AnyRole,
   type AppRole,
   type AuthScopeType,
 } from '@/lib/roles'
+import { detectTenantFromHostname } from '@/lib/tenant'
 
 interface User {
   id: number
@@ -38,15 +40,39 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-function resolveScopeFromPayload(payload: Record<string, unknown> | null, role: AppRole, fallback: AuthScopeType): AuthScopeType {
-  if (role === 'PLATFORM_ADMIN') return 'PLATFORM'
-
+function resolveScopeFromPayload(payload: Record<string, unknown> | null, fallback: AuthScopeType): AuthScopeType {
   const rawScope = String(payload?.authScopeType || payload?.scope || '')
     .trim()
     .toUpperCase()
   if (rawScope === 'PLATFORM') return 'PLATFORM'
   if (rawScope === 'TENANT') return 'TENANT'
   return fallback
+}
+
+function resolveRoleForScope(
+  role: AppRole,
+  scopeType: AuthScopeType,
+  payload: Record<string, unknown> | null,
+  fallbackRole?: string | null
+): AppRole {
+  const sourceUser = payload?.user && typeof payload.user === 'object' ? (payload.user as Record<string, unknown>) : null
+  const rawCandidates = [
+    payload?.role,
+    payload?.userRole,
+    payload?.authority,
+    sourceUser?.role,
+    sourceUser?.userRole,
+    sourceUser?.authority,
+    fallbackRole,
+  ]
+
+  const hasSystemAdminRole = rawCandidates.some((candidate) => isSystemAdminAlias(candidate == null ? null : String(candidate)))
+
+  if (scopeType === 'TENANT' && role === 'PLATFORM_ADMIN' && hasSystemAdminRole) {
+    return 'TENANT_ADMIN'
+  }
+
+  return role
 }
 
 function resolveTenantId(payload: Record<string, unknown> | null): number | null {
@@ -85,8 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       const payload = decodeJwtPayload(token)
       if (payload) {
-        const role = resolveRoleFromAuthSource(payload)
-        const scope = resolveScopeFromPayload(payload, role, 'TENANT')
+        const inferredFallbackScope = detectTenantFromHostname().requiresTenant ? 'TENANT' : 'TENANT'
+        const resolvedRole = resolveRoleFromAuthSource(payload)
+        const scope = resolveScopeFromPayload(payload, inferredFallbackScope)
+        const role = resolveRoleForScope(resolvedRole, scope, payload)
         applyTenantTheme(extractTenantBrandColor(payload as Record<string, any>))
         setUser({
           id: Number(payload.userId || payload.sub || 0),
@@ -122,25 +150,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       payload,
       response.user.role || String(payload?.role || 'STAFF_USER')
     )
+    const authScopeType = resolveScopeFromPayload(payload, scopeType)
+    const effectiveRole = resolveRoleForScope(
+      role,
+      authScopeType,
+      payload,
+      response.user.role || String(payload?.role || 'STAFF_USER')
+    )
 
-    if (scopeType === 'PLATFORM' && role !== 'PLATFORM_ADMIN') {
+    if (scopeType === 'PLATFORM' && effectiveRole !== 'PLATFORM_ADMIN') {
       throw new Error('Bu alana erişim yetkiniz bulunmuyor.')
     }
 
-    if (scopeType === 'TENANT' && role === 'PLATFORM_ADMIN') {
+    if (scopeType === 'TENANT' && authScopeType === 'PLATFORM') {
       throw new Error('Platform kullanıcıları bu ekrandan giriş yapamaz.')
     }
 
     tokenStorage.setTokens(response.accessToken, response.refreshToken || response.accessToken)
 
-    const authScopeType = resolveScopeFromPayload(payload, role, scopeType)
     applyTenantTheme(extractTenantBrandColor((payload as Record<string, any>) || (response.user as any)))
 
     const userData: User = {
       id: response.user.id || Number(payload?.userId || payload?.sub || 0),
       username: response.user.username || String(payload?.username || payload?.sub || credentials.username),
-      role,
-      effectiveRole: role,
+      role: effectiveRole,
+      effectiveRole,
       authScopeType,
       userType: response.user.userType || (payload?.userType ? String(payload.userType) : undefined),
       b2bUnitId:
