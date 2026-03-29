@@ -378,13 +378,6 @@ export function SystemAdminTenantListPage() {
                   >
                     Detay
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/system-admin/tenants/${tenant.id}/users`)}
-                  >
-                    Kullanıcıları Yönet
-                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setEditingTenant(tenant)}>
                     Düzenle
                   </Button>

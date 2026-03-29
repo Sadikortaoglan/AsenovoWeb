@@ -2,7 +2,7 @@ import apiClient from '@/lib/api'
 import { unwrapResponse, unwrapArrayResponse, type ApiResponse } from '@/lib/api-response'
 import { normalizeRole, type AppRole } from '@/lib/roles'
 
-export type TenantManageableRole = 'STAFF_USER' | 'CARI_USER'
+export type TenantManageableRole = 'TENANT_ADMIN' | 'STAFF_USER' | 'CARI_USER'
 
 export interface User {
   id: number
@@ -14,6 +14,7 @@ export interface User {
   enabled?: boolean
   active?: boolean
   createdAt?: string | null
+  lastLoginAt?: string | null
 }
 
 export interface CreateUserRequest {
@@ -40,6 +41,11 @@ export interface TenantUserListParams {
   search?: string
   role?: TenantManageableRole
   enabled?: boolean
+}
+
+export interface ChangeOwnPasswordPayload {
+  currentPassword: string
+  newPassword: string
 }
 
 export interface TenantUserListResult {
@@ -77,6 +83,13 @@ function mapUserFromBackend(backend: any): User {
     enabled: isActive,
     active: isActive,
     createdAt: backend.createdAt ?? backend.createdDate ?? null,
+    lastLoginAt:
+      backend.lastLoginAt ??
+      backend.lastLoginDate ??
+      backend.lastLoginTime ??
+      backend.lastLogin ??
+      backend.lastSignInAt ??
+      null,
   }
 }
 
@@ -190,6 +203,38 @@ export const userService = {
 
   enableTenantUser: async (id: number): Promise<void> => {
     await apiClient.post(`/tenant-admin/users/${id}/enable`)
+  },
+
+  resetTenantUserPassword: async (id: number, newPassword: string): Promise<void> => {
+    await apiClient.post(`/tenant-admin/users/${id}/reset-password`, {
+      newPassword,
+      password: newPassword,
+    })
+  },
+
+  changeOwnPassword: async (payload: ChangeOwnPasswordPayload): Promise<void> => {
+    const body = {
+      currentPassword: payload.currentPassword,
+      oldPassword: payload.currentPassword,
+      newPassword: payload.newPassword,
+      password: payload.newPassword,
+    }
+
+    try {
+      await apiClient.post('/tenant-admin/users/me/change-password', body)
+      return
+    } catch (error: any) {
+      if (error?.response?.status !== 404) throw error
+    }
+
+    try {
+      await apiClient.post('/tenant-admin/users/change-password', body)
+      return
+    } catch (error: any) {
+      if (error?.response?.status !== 404) throw error
+    }
+
+    await apiClient.post('/auth/change-password', body)
   },
 
   lookupB2BUnits: async (query?: string): Promise<B2BUnitLookupOption[]> => {

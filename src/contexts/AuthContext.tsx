@@ -12,7 +12,6 @@ import {
   type AppRole,
   type AuthScopeType,
 } from '@/lib/roles'
-import { detectTenantFromHostname } from '@/lib/tenant'
 
 interface User {
   id: number
@@ -40,12 +39,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-function resolveScopeFromPayload(payload: Record<string, unknown> | null, fallback: AuthScopeType): AuthScopeType {
+function resolveScopeFromPayload(payload: Record<string, unknown> | null, role: AppRole, fallback: AuthScopeType): AuthScopeType {
   const rawScope = String(payload?.authScopeType || payload?.scope || '')
     .trim()
     .toUpperCase()
   if (rawScope === 'PLATFORM') return 'PLATFORM'
   if (rawScope === 'TENANT') return 'TENANT'
+
+  if (role === 'PLATFORM_ADMIN') {
+    if (resolveTenantId(payload) != null || resolveTenantSubdomain(payload)) {
+      return 'TENANT'
+    }
+    return 'PLATFORM'
+  }
+
   return fallback
 }
 
@@ -111,9 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       const payload = decodeJwtPayload(token)
       if (payload) {
-        const inferredFallbackScope = detectTenantFromHostname().requiresTenant ? 'TENANT' : 'TENANT'
         const resolvedRole = resolveRoleFromAuthSource(payload)
-        const scope = resolveScopeFromPayload(payload, inferredFallbackScope)
+        const scope = resolveScopeFromPayload(payload, resolvedRole, 'TENANT')
         const role = resolveRoleForScope(resolvedRole, scope, payload)
         applyTenantTheme(extractTenantBrandColor(payload as Record<string, any>))
         setUser({
@@ -150,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       payload,
       response.user.role || String(payload?.role || 'STAFF_USER')
     )
-    const authScopeType = resolveScopeFromPayload(payload, scopeType)
+    const authScopeType = resolveScopeFromPayload(payload, role, scopeType)
     const effectiveRole = resolveRoleForScope(
       role,
       authScopeType,
@@ -165,7 +171,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (scopeType === 'TENANT' && authScopeType === 'PLATFORM') {
       throw new Error('Platform kullanıcıları bu ekrandan giriş yapamaz.')
     }
-
     tokenStorage.setTokens(response.accessToken, response.refreshToken || response.accessToken)
 
     applyTenantTheme(extractTenantBrandColor((payload as Record<string, any>) || (response.user as any)))
@@ -217,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const getDefaultRoute = (): string => {
     if (user?.authScopeType === 'PLATFORM') return '/system-admin/tenants'
+    if (user?.authScopeType === 'TENANT' && user?.role === 'PLATFORM_ADMIN') return '/tenant-admin/users'
     return getDefaultRouteForRole(user?.role)
   }
 

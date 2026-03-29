@@ -1,7 +1,8 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { KeyRound, Plus } from 'lucide-react'
 import { userService, type TenantManageableRole, type User } from '@/services/user.service'
+import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TableResponsive } from '@/components/ui/table-responsive'
@@ -35,7 +36,12 @@ type UserFormErrors = Partial<Record<'username' | 'password' | 'role' | 'linkedB
 
 const PAGE_SIZE = 20
 
-const MANAGEABLE_ROLES: TenantManageableRole[] = ['STAFF_USER', 'CARI_USER']
+const TENANT_ADMIN_MANAGEABLE_ROLES: TenantManageableRole[] = ['STAFF_USER', 'CARI_USER']
+const TENANT_LOCAL_PLATFORM_ADMIN_MANAGEABLE_ROLES: TenantManageableRole[] = [
+  'TENANT_ADMIN',
+  'STAFF_USER',
+  'CARI_USER',
+]
 
 function roleLabel(role?: string | null) {
   if (role === 'STAFF_USER') return 'Staff User'
@@ -52,12 +58,14 @@ function formatDateTime(value?: string | null): string {
   return date.toLocaleString('tr-TR')
 }
 
-function isManageableUser(user: User): boolean {
-  return MANAGEABLE_ROLES.includes(user.role as TenantManageableRole)
+function isManageableUser(user: User, manageableRoles: TenantManageableRole[]): boolean {
+  return manageableRoles.includes(user.role as TenantManageableRole)
 }
 
-function normalizeEditableRole(role?: User['role']): TenantManageableRole {
-  return role === 'CARI_USER' ? 'CARI_USER' : 'STAFF_USER'
+function normalizeEditableRole(role: User['role'] | undefined, allowTenantAdmin: boolean): TenantManageableRole {
+  if (role === 'CARI_USER') return 'CARI_USER'
+  if (allowTenantAdmin && role === 'TENANT_ADMIN') return 'TENANT_ADMIN'
+  return 'STAFF_USER'
 }
 
 function validateUserForm(
@@ -92,8 +100,23 @@ function validateUserForm(
 }
 
 export function UsersPage() {
+  const { user } = useAuth()
+  const isTenantLocalPlatformAdmin = user?.authScopeType === 'TENANT' && user?.role === 'PLATFORM_ADMIN'
+  const manageableRoles = useMemo(
+    () =>
+      isTenantLocalPlatformAdmin
+        ? TENANT_LOCAL_PLATFORM_ADMIN_MANAGEABLE_ROLES
+        : TENANT_ADMIN_MANAGEABLE_ROLES,
+    [isTenantLocalPlatformAdmin]
+  )
+
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [resetPasswordState, setResetPasswordState] = useState<{ open: boolean; user: User | null }>({
+    open: false,
+    user: null,
+  })
+  const [isChangeOwnPasswordOpen, setIsChangeOwnPasswordOpen] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<ManageableRoleFilter>('ALL')
@@ -225,6 +248,46 @@ export function UsersPage() {
     },
   })
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ userId, newPassword }: { userId: number; newPassword: string }) =>
+      userService.resetTenantUserPassword(userId, newPassword),
+    onSuccess: () => {
+      toast({
+        title: 'Başarılı',
+        description: 'Şifre başarıyla güncellendi.',
+        variant: 'success',
+      })
+      setResetPasswordState({ open: false, user: null })
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Hata',
+        description: getUserFriendlyErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const changeOwnPasswordMutation = useMutation({
+    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
+      userService.changeOwnPassword({ currentPassword, newPassword }),
+    onSuccess: () => {
+      toast({
+        title: 'Başarılı',
+        description: 'Şifreniz başarıyla güncellendi.',
+        variant: 'success',
+      })
+      setIsChangeOwnPasswordOpen(false)
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Hata',
+        description: getUserFriendlyErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
   const users = usersQuery.data?.content || []
   const totalPages = usersQuery.data?.totalPages || 1
   const totalElements = usersQuery.data?.totalElements || 0
@@ -232,7 +295,9 @@ export function UsersPage() {
     createMutation.isPending ||
     updateMutation.isPending ||
     disableMutation.isPending ||
-    enableMutation.isPending
+    enableMutation.isPending ||
+    resetPasswordMutation.isPending ||
+    changeOwnPasswordMutation.isPending
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -254,13 +319,13 @@ export function UsersPage() {
   }
 
   const openEditDialog = (user: User) => {
-    if (!isManageableUser(user)) return
+    if (!isManageableUser(user, manageableRoles)) return
     setSelectedUser(user)
     setIsDialogOpen(true)
   }
 
   const openToggleConfirm = (user: User, action: UserActionType) => {
-    if (!isManageableUser(user)) return
+    if (!isManageableUser(user, manageableRoles)) return
     setConfirmState({
       open: true,
       action,
@@ -285,45 +350,69 @@ export function UsersPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Kullanıcı Yönetimi</h1>
-          <p className="text-muted-foreground">Tenant kullanıcıları (Staff/Cari) yönetimi</p>
+          <p className="text-muted-foreground">
+            {isTenantLocalPlatformAdmin
+              ? 'Bu tenant için Tenant Admin, Staff ve Cari kullanıcılarını yönetin'
+              : 'Tenant kullanıcıları (Staff/Cari) yönetimi'}
+          </p>
         </div>
-        <Dialog
-          open={isDialogOpen}
-          onOpenChange={(open) => {
-            setIsDialogOpen(open)
-            if (!open) {
-              setSelectedUser(null)
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Kullanıcı Ekle
-            </Button>
-          </DialogTrigger>
-          <TenantUserFormDialog
-            user={selectedUser}
-            pending={createMutation.isPending || updateMutation.isPending}
-            onClose={() => {
-              setIsDialogOpen(false)
-              setSelectedUser(null)
-            }}
-            onSubmit={(payload) => {
-              if (selectedUser) {
-                updateMutation.mutate({
-                  id: selectedUser.id,
-                  payload,
-                })
-                return
+        <div className="flex flex-wrap items-center gap-2">
+          {isTenantLocalPlatformAdmin ? (
+            <Dialog open={isChangeOwnPasswordOpen} onOpenChange={setIsChangeOwnPasswordOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Şifremi Değiştir
+                </Button>
+              </DialogTrigger>
+              <ChangeOwnPasswordDialog
+                pending={changeOwnPasswordMutation.isPending}
+                onClose={() => setIsChangeOwnPasswordOpen(false)}
+                onSubmit={(currentPassword, newPassword) =>
+                  changeOwnPasswordMutation.mutate({ currentPassword, newPassword })
+                }
+              />
+            </Dialog>
+          ) : null}
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open)
+              if (!open) {
+                setSelectedUser(null)
               }
-              createMutation.mutate({
-                ...payload,
-                password: payload.password || '',
-              })
             }}
-          />
-        </Dialog>
+          >
+            <DialogTrigger asChild>
+              <Button onClick={openCreateDialog}>
+                <Plus className="mr-2 h-4 w-4" />
+                Kullanıcı Ekle
+              </Button>
+            </DialogTrigger>
+            <TenantUserFormDialog
+              user={selectedUser}
+              pending={createMutation.isPending || updateMutation.isPending}
+              manageableRoles={manageableRoles}
+              onClose={() => {
+                setIsDialogOpen(false)
+                setSelectedUser(null)
+              }}
+              onSubmit={(payload) => {
+                if (selectedUser) {
+                  updateMutation.mutate({
+                    id: selectedUser.id,
+                    payload,
+                  })
+                  return
+                }
+                createMutation.mutate({
+                  ...payload,
+                  password: payload.password || '',
+                })
+              }}
+            />
+          </Dialog>
+        </div>
       </div>
 
       <form className="flex flex-wrap items-end gap-3" onSubmit={handleSearchSubmit}>
@@ -350,6 +439,9 @@ export function UsersPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Tümü</SelectItem>
+              {isTenantLocalPlatformAdmin ? (
+                <SelectItem value="TENANT_ADMIN">Tenant Admin</SelectItem>
+              ) : null}
               <SelectItem value="STAFF_USER">Staff User</SelectItem>
               <SelectItem value="CARI_USER">Cari User</SelectItem>
             </SelectContent>
@@ -434,10 +526,18 @@ export function UsersPage() {
                 render: (user: User) => user.linkedB2BUnitName || '-',
               },
               {
+                key: 'lastLoginAt',
+                header: 'Son Giriş',
+                mobileLabel: 'Son Giriş',
+                mobilePriority: 6,
+                hideOnMobile: true,
+                render: (user: User) => formatDateTime(user.lastLoginAt),
+              },
+              {
                 key: 'createdAt',
                 header: 'Oluşturulma Tarihi',
                 mobileLabel: 'Tarih',
-                mobilePriority: 6,
+                mobilePriority: 5,
                 hideOnMobile: true,
                 render: (user: User) => formatDateTime(user.createdAt),
               },
@@ -448,7 +548,7 @@ export function UsersPage() {
                 mobilePriority: 1,
                 hideOnMobile: false,
                 render: (user: User) =>
-                  isManageableUser(user) ? (
+                  isManageableUser(user, manageableRoles) ? (
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
                         Düzenle
@@ -472,6 +572,21 @@ export function UsersPage() {
                           Aktifleştir
                         </Button>
                       )}
+                      {isTenantLocalPlatformAdmin ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isActionPending}
+                          onClick={() =>
+                            setResetPasswordState({
+                              open: true,
+                              user,
+                            })
+                          }
+                        >
+                          Şifre Sıfırla
+                        </Button>
+                      ) : null}
                     </div>
                   ) : (
                     <span className="text-sm text-muted-foreground">Bu rol düzenlenemez</span>
@@ -524,6 +639,30 @@ export function UsersPage() {
         variant={confirmState.action === 'disable' ? 'destructive' : 'default'}
         onConfirm={handleConfirmAction}
       />
+
+      <Dialog
+        open={resetPasswordState.open}
+        onOpenChange={(open) => {
+          setResetPasswordState((prev) => ({ ...prev, open }))
+          if (!open) {
+            setResetPasswordState({ open: false, user: null })
+          }
+        }}
+      >
+        {resetPasswordState.user ? (
+          <ResetTenantUserPasswordDialog
+            user={resetPasswordState.user}
+            pending={resetPasswordMutation.isPending}
+            onClose={() => setResetPasswordState({ open: false, user: null })}
+            onSubmit={(newPassword) =>
+              resetPasswordMutation.mutate({
+                userId: resetPasswordState.user?.id || 0,
+                newPassword,
+              })
+            }
+          />
+        ) : null}
+      </Dialog>
     </div>
   )
 }
@@ -533,9 +672,11 @@ function TenantUserFormDialog({
   pending,
   onClose,
   onSubmit,
+  manageableRoles,
 }: {
   user: User | null
   pending: boolean
+  manageableRoles: TenantManageableRole[]
   onClose: () => void
   onSubmit: (payload: {
     username: string
@@ -546,12 +687,13 @@ function TenantUserFormDialog({
   }) => void
 }) {
   const isEdit = Boolean(user)
+  const allowTenantAdminRole = manageableRoles.includes('TENANT_ADMIN')
   const { toast } = useToast()
 
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    role: 'STAFF_USER' as TenantManageableRole,
+    role: (allowTenantAdminRole ? 'TENANT_ADMIN' : 'STAFF_USER') as TenantManageableRole,
     enabled: true,
     linkedB2BUnitId: null as number | null,
   })
@@ -567,7 +709,7 @@ function TenantUserFormDialog({
       setFormData({
         username: '',
         password: '',
-        role: 'STAFF_USER',
+        role: allowTenantAdminRole ? 'TENANT_ADMIN' : 'STAFF_USER',
         enabled: true,
         linkedB2BUnitId: null,
       })
@@ -578,12 +720,12 @@ function TenantUserFormDialog({
     setFormData({
       username: user.username || '',
       password: '',
-      role: normalizeEditableRole(user.role),
+      role: normalizeEditableRole(user.role, allowTenantAdminRole),
       enabled: Boolean(user.enabled),
       linkedB2BUnitId: user.linkedB2BUnitId ?? null,
     })
     setErrors({})
-  }, [user])
+  }, [allowTenantAdminRole, user])
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -672,6 +814,9 @@ function TenantUserFormDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                {allowTenantAdminRole ? (
+                  <SelectItem value="TENANT_ADMIN">Tenant Admin</SelectItem>
+                ) : null}
                 <SelectItem value="STAFF_USER">Staff User</SelectItem>
                 <SelectItem value="CARI_USER">Cari User</SelectItem>
               </SelectContent>
@@ -733,6 +878,165 @@ function TenantUserFormDialog({
           </Button>
           <Button type="submit" disabled={pending}>
             {pending ? 'Kaydediliyor...' : isEdit ? 'Güncelle' : 'Kaydet'}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  )
+}
+
+function ResetTenantUserPasswordDialog({
+  user,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  user: User
+  pending: boolean
+  onClose: () => void
+  onSubmit: (newPassword: string) => void
+}) {
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPassword('')
+    setError(null)
+  }, [user])
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!password.trim()) {
+      setError('Yeni şifre zorunlu')
+      return
+    }
+
+    setError(null)
+    onSubmit(password.trim())
+  }
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Şifre Sıfırla</DialogTitle>
+        <DialogDescription>
+          <span className="font-medium">{user.username}</span> kullanıcısı için yeni şifre belirleyin.
+        </DialogDescription>
+      </DialogHeader>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="space-y-2">
+          <Label htmlFor="reset-user-password">Yeni Şifre</Label>
+          <Input
+            id="reset-user-password"
+            type="password"
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              setError(null)
+            }}
+          />
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+            İptal
+          </Button>
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Kaydediliyor...' : 'Şifreyi Güncelle'}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  )
+}
+
+function ChangeOwnPasswordDialog({
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  pending: boolean
+  onClose: () => void
+  onSubmit: (currentPassword: string, newPassword: string) => void
+}) {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [newPasswordAgain, setNewPasswordAgain] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!currentPassword.trim()) {
+      setError('Mevcut şifre zorunlu')
+      return
+    }
+
+    if (!newPassword.trim()) {
+      setError('Yeni şifre zorunlu')
+      return
+    }
+
+    if (newPassword !== newPasswordAgain) {
+      setError('Yeni şifreler eşleşmiyor')
+      return
+    }
+
+    setError(null)
+    onSubmit(currentPassword.trim(), newPassword.trim())
+  }
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Şifre Değiştir</DialogTitle>
+        <DialogDescription>Hesabınızın şifresini güncelleyin.</DialogDescription>
+      </DialogHeader>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="space-y-2">
+          <Label htmlFor="own-current-password">Mevcut Şifre</Label>
+          <Input
+            id="own-current-password"
+            type="password"
+            value={currentPassword}
+            onChange={(event) => {
+              setCurrentPassword(event.target.value)
+              setError(null)
+            }}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="own-new-password">Yeni Şifre</Label>
+          <Input
+            id="own-new-password"
+            type="password"
+            value={newPassword}
+            onChange={(event) => {
+              setNewPassword(event.target.value)
+              setError(null)
+            }}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="own-new-password-again">Yeni Şifre (Tekrar)</Label>
+          <Input
+            id="own-new-password-again"
+            type="password"
+            value={newPasswordAgain}
+            onChange={(event) => {
+              setNewPasswordAgain(event.target.value)
+              setError(null)
+            }}
+          />
+        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+            İptal
+          </Button>
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Kaydediliyor...' : 'Şifreyi Güncelle'}
           </Button>
         </DialogFooter>
       </form>
