@@ -85,7 +85,7 @@ export function QrCodesPage() {
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Asansör QR</title>
+          <title>Asansör QR Kodu</title>
           <style>
             * { box-sizing: border-box; }
             html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111827; }
@@ -178,17 +178,17 @@ export function QrCodesPage() {
         </head>
         <body>
           <div class="toolbar">
-            <div class="toolbar-title">Asansör QR Etiketi</div>
+            <div class="toolbar-title">Asansör QR Kodu</div>
             <button class="print-btn" onclick="window.print()">Yazdır</button>
           </div>
           <main class="sheet">
             <section class="content">
               <div class="info">
-                <h1 class="title">Asansör QR</h1>
+                <h1 class="title">Asansör QR Kodu</h1>
                 <div class="meta">
                   <p><span class="label">Asansör:</span>${safeElevatorName}</p>
-                  <p><span class="label">Bina:</span>${safeBuildingName}</p>
-                  <p><span class="label">Müşteri:</span>${safeCustomerName}</p>
+                  <p><span class="label">Tesis(Bina):</span>${safeBuildingName}</p>
+                  <p><span class="label">Cari:</span>${safeCustomerName}</p>
                 </div>
                 <div class="instructions">
                   <h3>Kullanım Talimatları</h3>
@@ -223,7 +223,7 @@ export function QrCodesPage() {
   const qrColumns = [
     {
       key: 'qrImage',
-      header: 'QR Image',
+      header: 'QR Kodu',
       render: (item: QrCodeItem) =>
         item.hasQr ? (
           <QrCodePreviewImage src={item.qrImageUrl} alt={`${item.elevatorName} QR`} className="qr-codes__image" />
@@ -235,22 +235,22 @@ export function QrCodesPage() {
     },
     {
       key: 'elevatorName',
-      header: 'Elevator Name',
+      header: 'Asansör Adı',
       render: (item: QrCodeItem) => item.elevatorName,
     },
     {
       key: 'buildingName',
-      header: 'Building Name',
+      header: 'Tesis(Bina) Adı',
       render: (item: QrCodeItem) => item.buildingName,
     },
     {
       key: 'customerName',
-      header: 'Customer Name',
+      header: 'Cari Adı',
       render: (item: QrCodeItem) => item.customerName,
     },
     {
       key: 'actions',
-      header: 'Action',
+      header: 'İşlem',
       render: (item: QrCodeItem) => (
         <div className="qr-codes-actions">
           <Button
@@ -325,14 +325,14 @@ export function QrCodesPage() {
       <Card className="qr-codes-shell">
         <CardHeader className="qr-codes-header">
           <div className="qr-codes-header__top">
-            <CardTitle>QR Kodları</CardTitle>
+            <CardTitle>Asansör QR Kodları</CardTitle>
             {isFetching && !isLoading ? <span className="qr-codes-status">Güncelleniyor...</span> : null}
           </div>
 
           <div className="qr-codes-search">
             <div className="qr-codes-search__row">
               <Input
-                placeholder="Asansör, bina veya müşteri ara..."
+                placeholder="Asansör, tesis veya cari ara..."
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 aria-label="QR kod arama"
@@ -359,7 +359,7 @@ export function QrCodesPage() {
               pageData={data}
               loading={isLoading || isFetching}
               onPageChange={setPage}
-              tableTitle="QR Kodları"
+              tableTitle="Asansör QR Kodları"
               columns={qrColumns}
             />
           ) : null}

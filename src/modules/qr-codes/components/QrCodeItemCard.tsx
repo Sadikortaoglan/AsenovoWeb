@@ -30,10 +30,10 @@ export function QrCodeItemCard({ item, onPrint }: QrCodeItemCardProps) {
           <p className="qr-codes-card__label">Asansör</p>
           <p className="qr-codes-card__value">{item.elevatorName}</p>
 
-          <p className="qr-codes-card__label">Bina</p>
+          <p className="qr-codes-card__label">Tesis(Bina)</p>
           <p className="qr-codes-card__value">{item.buildingName}</p>
 
-          <p className="qr-codes-card__label">Müşteri</p>
+          <p className="qr-codes-card__label">Cari</p>
           <p className="qr-codes-card__value">{item.customerName}</p>
         </div>
 

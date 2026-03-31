@@ -32,6 +32,7 @@ import {
   FileSearch,
   PanelLeftClose,
   PanelLeftOpen,
+  QrCode,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -75,6 +76,12 @@ const rawMenuItems: MenuItem[] = [
         title: 'Asansör Sözleşmeleri',
         href: '/elevator-contracts',
         icon: FileSignature,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Asansör QR Kodları',
+        href: '/elevator-qrcodes',
+        icon: QrCode,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
     ],
@@ -626,6 +633,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
     if (pathname === href) return true
     if (href === '/elevator-labels' && pathname.startsWith('/elevator-labels/')) return true
     if (href === '/elevator-contracts' && pathname.startsWith('/elevator-contracts/')) return true
+    if (href === '/elevator-qrcodes' && pathname.startsWith('/elevator-qrcodes/')) return true
     if (href === '/facilities' && pathname.startsWith('/facilities/')) return true
     if (href === '/system-admin/tenants' && pathname.startsWith('/system-admin/tenants/')) return true
     if (href === '/system-admin/tenant-jobs' && pathname.startsWith('/system-admin/tenant-jobs/')) return true
@@ -691,6 +699,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
     if (href === '/elevators') return counts.elevators
     if (href === '/elevator-labels') return counts.elevators
     if (href === '/elevator-contracts') return counts.elevators
+    if (href === '/elevator-qrcodes') return counts.elevators
     if (href === '/maintenance-completions') return counts.maintenanceSessionsCompleted
     return undefined
   }
@@ -707,6 +716,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
       if (child.href === '/elevators') return sum + (counts.elevators || 0)
       if (child.href === '/elevator-labels') return sum + (counts.elevators || 0)
       if (child.href === '/elevator-contracts') return sum + (counts.elevators || 0)
+      if (child.href === '/elevator-qrcodes') return sum + (counts.elevators || 0)
       if (child.href === '/maintenance-completions') return sum + (counts.maintenanceSessionsCompleted || 0)
       return sum
     }, 0)
