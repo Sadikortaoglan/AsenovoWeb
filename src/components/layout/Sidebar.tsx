@@ -109,12 +109,6 @@ const rawMenuItems: MenuItem[] = [
         roles: ['PATRON', 'PERSONEL'] as const,
       },
       {
-        title: 'Para Birimleri',
-        href: '/currencies',
-        icon: Wallet,
-        roles: ['PATRON', 'PERSONEL'] as const,
-      },
-      {
         title: 'Cari Bilgilerim',
         href: '/b2bunits/me',
         icon: FileSearch,
@@ -250,16 +244,15 @@ const rawMenuItems: MenuItem[] = [
         icon: Wallet,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
-    ],
-  },
-  {
-    title: 'Tanımlamalar',
-    icon: Settings,
-    roles: ['PATRON', 'PERSONEL'] as const,
-    children: [
       {
         title: 'Kasalar',
         href: '/definitions/cashboxes',
+        icon: Wallet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Para Birimleri',
+        href: '/currencies',
         icon: Wallet,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
