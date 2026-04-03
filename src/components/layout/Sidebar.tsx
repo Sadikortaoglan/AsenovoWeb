@@ -244,6 +244,12 @@ const rawMenuItems: MenuItem[] = [
         icon: Receipt,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
+      {
+        title: 'Bankalar',
+        href: '/financial-operations/banks',
+        icon: Wallet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
     ],
   },
   {
