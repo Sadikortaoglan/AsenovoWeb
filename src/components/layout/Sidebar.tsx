@@ -228,10 +228,36 @@ const rawMenuItems: MenuItem[] = [
     roles: ['PATRON', 'PERSONEL'] as const,
   },
   {
-    title: 'Tahsilat Fişleri',
-    href: '/payments',
+    title: 'Finansal İşlemler',
     icon: Receipt,
     roles: ['PATRON', 'PERSONEL'] as const,
+    children: [
+      {
+        title: 'Hızlı Tahsilat',
+        href: '/financial-operations/quick-collection',
+        icon: Wallet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Tahsilat Fişleri',
+        href: '/financial-operations/collection-receipts',
+        icon: Receipt,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+    ],
+  },
+  {
+    title: 'Tanımlamalar',
+    icon: Settings,
+    roles: ['PATRON', 'PERSONEL'] as const,
+    children: [
+      {
+        title: 'Kasalar',
+        href: '/definitions/cashboxes',
+        icon: Wallet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+    ],
   },
   {
     title: 'Kullanıcılar',
@@ -627,6 +653,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
     if (href === '/elevator-labels' && pathname.startsWith('/elevator-labels/')) return true
     if (href === '/elevator-contracts' && pathname.startsWith('/elevator-contracts/')) return true
     if (href === '/facilities' && pathname.startsWith('/facilities/')) return true
+    if (href === '/financial-operations/collection-receipts' && pathname.startsWith('/financial-operations/collection-receipts')) return true
     if (href === '/system-admin/tenants' && pathname.startsWith('/system-admin/tenants/')) return true
     if (href === '/system-admin/tenant-jobs' && pathname.startsWith('/system-admin/tenant-jobs/')) return true
     return false

@@ -33,6 +33,7 @@ import { useToast } from '@/components/ui/use-toast'
 import type { ApiResponse } from '@/lib/api-response'
 import { getUserFriendlyErrorMessage } from '@/lib/api-error-handler'
 import { edmService } from '@/modules/edm/edm.service'
+import { cashboxesService } from '@/modules/definitions/cashboxes.service'
 import { GoogleMapPicker } from '@/modules/facilities/GoogleMapPicker'
 import {
   facilitiesService,
@@ -1976,7 +1977,7 @@ function CollectionTransactionForm({
 
   const cashAccountsQuery = useQuery({
     queryKey: ['cash-accounts', 'lookup', 'b2bunit-collection'],
-    queryFn: () => cariService.lookupCashAccounts(),
+    queryFn: () => cashboxesService.lookup(),
     enabled: canManageCollections && requiresCashAccount,
   })
 

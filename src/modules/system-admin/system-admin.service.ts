@@ -198,6 +198,21 @@ function normalizeTenantUser(raw: any): SystemAdminTenantUser {
   }
 }
 
+function normalizeB2BUnitLookupOption(raw: unknown): SystemAdminB2BUnitLookupOption | null {
+  if (!raw || typeof raw !== 'object') return null
+  const source = raw as Record<string, unknown>
+  const id = toNumber(source.id)
+  const name = toText(source.name)
+  if (!id || !name) return null
+  return { id, name }
+}
+
+function normalizeB2BUnitLookupRows(rows: unknown[]): SystemAdminB2BUnitLookupOption[] {
+  return rows
+    .map((row) => normalizeB2BUnitLookupOption(row))
+    .filter((row): row is SystemAdminB2BUnitLookupOption => row !== null)
+}
+
 export const systemAdminService = {
   listTenants: async (): Promise<SystemAdminTenant[]> => {
     const { data } = await apiClient.get<ApiResponse<unknown> | unknown>('/system-admin/tenants')
@@ -289,7 +304,7 @@ export const systemAdminService = {
       )
 
       return {
-        content: rows.map(normalizeTenantUser).filter((row) => row.id > 0),
+        content: rows.map(normalizeTenantUser).filter((row: SystemAdminTenantUser) => row.id > 0),
         page: Number.isFinite(resolvedPage) ? resolvedPage : params.page,
         size: Number.isFinite(resolvedSize) ? resolvedSize : params.size,
         totalElements: Number.isFinite(totalElements) ? totalElements : rows.length,
@@ -392,7 +407,11 @@ export const systemAdminService = {
       const { data } = await apiClient.get<ApiResponse<SystemAdminB2BUnitLookupOption[]> | unknown>(path, {
         params: { query },
       })
-      return unwrapArrayResponse(data, true)
+      const rows = unwrapArrayResponse<unknown>(
+        data as ApiResponse<unknown[]> | unknown[],
+        true,
+      )
+      return normalizeB2BUnitLookupRows(rows)
     }
 
     try {

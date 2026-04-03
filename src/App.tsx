@@ -50,6 +50,10 @@ import { B2BUnitMePage } from './modules/cari/B2BUnitMePage'
 import { FacilitiesPage } from './modules/facilities/FacilitiesPage'
 import { FacilityFormPage } from './modules/facilities/FacilityFormPage'
 import { FacilityDetailPage } from './modules/facilities/FacilityDetailPage'
+import { QuickCollectionPage } from './modules/financial/QuickCollectionPage'
+import { CollectionReceiptsPage } from './modules/financial/CollectionReceiptsPage'
+import { CollectionReceiptPrintPage } from './modules/financial/CollectionReceiptPrintPage'
+import { CashboxesPage } from './modules/definitions/CashboxesPage'
 import { SystemAdminTenantListPage } from './modules/system-admin/SystemAdminTenantListPage'
 import { SystemAdminDashboardPage } from './modules/system-admin/SystemAdminDashboardPage'
 import { SystemAdminTenantDetailPage } from './modules/system-admin/SystemAdminTenantDetailPage'
@@ -131,6 +135,14 @@ function AppRoutes() {
         }
       />
       <Route path="/forbidden" element={<ForbiddenPage />} />
+      <Route
+        path="/financial-operations/collection-receipts/print"
+        element={
+          <ProtectedRoute>
+            <CollectionReceiptPrintPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/"
         element={
@@ -229,6 +241,9 @@ function AppRoutes() {
         <Route path="revision-standards/:standardId/articles" element={<RevisionStandardArticlesPage />} />
         <Route path="faults" element={<FaultsPage />} />
         <Route path="inspections" element={<InspectionsPage />} />
+        <Route path="financial-operations/quick-collection" element={<QuickCollectionPage />} />
+        <Route path="financial-operations/collection-receipts" element={<CollectionReceiptsPage />} />
+        <Route path="definitions/cashboxes" element={<CashboxesPage />} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route
           path="users"
