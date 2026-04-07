@@ -58,6 +58,7 @@ import { QuickCollectionPage } from './modules/financial/QuickCollectionPage'
 import { CollectionReceiptsPage } from './modules/financial/CollectionReceiptsPage'
 import { CollectionReceiptPrintPage } from './modules/financial/CollectionReceiptPrintPage'
 import { BanksPage } from './modules/financial/BanksPage'
+import { VatRatesPage } from './modules/financial/VatRatesPage'
 import { CashboxesPage } from './modules/definitions/CashboxesPage'
 import { SystemAdminTenantListPage } from './modules/system-admin/SystemAdminTenantListPage'
 import { SystemAdminDashboardPage } from './modules/system-admin/SystemAdminDashboardPage'
@@ -253,6 +254,7 @@ function AppRoutes() {
         <Route path="financial-operations/quick-collection" element={<QuickCollectionPage />} />
         <Route path="financial-operations/collection-receipts" element={<CollectionReceiptsPage />} />
         <Route path="financial-operations/banks" element={<BanksPage />} />
+        <Route path="financial-operations/vat-rates" element={<VatRatesPage />} />
         <Route path="definitions/cashboxes" element={<CashboxesPage />} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route
