@@ -173,10 +173,23 @@ const rawMenuItems: MenuItem[] = [
     roles: ['PATRON', 'PERSONEL'] as const,
   },
   {
-    title: 'Stok',
-    href: '/parts',
+    title: 'Stoklar',
     icon: Package,
     roles: ['PATRON', 'PERSONEL'] as const,
+    children: [
+      {
+        title: 'Stok Listesi',
+        href: '/parts',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Markalar',
+        href: '/stocks/brands',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+    ],
   },
   {
     title: 'Teklifler',
