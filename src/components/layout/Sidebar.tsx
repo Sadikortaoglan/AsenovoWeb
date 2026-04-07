@@ -256,6 +256,12 @@ const rawMenuItems: MenuItem[] = [
         icon: Wallet,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
+      {
+        title: 'KDV Oranları',
+        href: '/financial-operations/vat-rates',
+        icon: FileSpreadsheet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
     ],
   },
   {
