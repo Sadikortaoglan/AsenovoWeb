@@ -41,6 +41,7 @@ import { MaintenanceCompletionsPage } from './modules/maintenance/MaintenanceCom
 import { PaymentTransactionsPage } from './modules/payments/PaymentTransactionsPage'
 import { StocksPage } from './modules/stocks/StocksPage'
 import { BrandsPage } from './modules/stocks/BrandsPage'
+import { ModelsPage } from './modules/stocks/ModelsPage'
 import { ProposalsPage } from './modules/proposals/ProposalsPage'
 import { StatusDetectionReportsPage } from './modules/reports/StatusDetectionReportsPage'
 import { B2BUnitsPage } from './modules/cari/B2BUnitsPage'
@@ -177,6 +178,7 @@ function AppRoutes() {
         <Route path="payment-transactions" element={<PaymentTransactionsPage />} />
         <Route path="stocks" element={<StocksPage />} />
         <Route path="stocks/brands" element={<BrandsPage />} />
+        <Route path="stocks/models" element={<ModelsPage />} />
         <Route path="proposals" element={<ProposalsPage />} />
         <Route path="reports/status-detections" element={<StatusDetectionReportsPage />} />
         <Route
