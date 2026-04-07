@@ -201,6 +201,12 @@ const rawMenuItems: MenuItem[] = [
         icon: List,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
+      {
+        title: 'Stok Grupları',
+        href: '/stocks/groups',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
     ],
   },
   {
