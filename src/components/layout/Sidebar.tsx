@@ -206,6 +206,12 @@ const rawMenuItems: MenuItem[] = [
         icon: List,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
+      {
+        title: 'Depolar',
+        href: '/stocks/warehouses',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
     ],
   },
   {

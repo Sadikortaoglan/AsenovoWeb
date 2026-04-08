@@ -43,6 +43,7 @@ import { BrandsPage } from './modules/stocks/BrandsPage'
 import { ModelsPage } from './modules/stocks/ModelsPage'
 import { StockUnitsPage } from './modules/stocks/StockUnitsPage'
 import { StockGroupsPage } from './modules/stocks/StockGroupsPage'
+import { WarehousesPage } from './modules/stocks/WarehousesPage'
 import { ProposalsPage } from './modules/proposals/ProposalsPage'
 import { StatusDetectionReportsPage } from './modules/reports/StatusDetectionReportsPage'
 import { B2BUnitsPage } from './modules/cari/B2BUnitsPage'
@@ -181,6 +182,7 @@ function AppRoutes() {
         <Route path="stocks/models" element={<ModelsPage />} />
         <Route path="stocks/units" element={<StockUnitsPage />} />
         <Route path="stocks/groups" element={<StockGroupsPage />} />
+        <Route path="stocks/warehouses" element={<WarehousesPage />} />
         <Route path="proposals" element={<ProposalsPage />} />
         <Route path="reports/status-detections" element={<StatusDetectionReportsPage />} />
         <Route
