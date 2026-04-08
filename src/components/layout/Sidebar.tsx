@@ -27,7 +27,6 @@ import {
   FileBadge2,
   FileSignature,
   Wallet,
-  Boxes,
   FileSpreadsheet,
   FileSearch,
   PanelLeftClose,
@@ -374,12 +373,6 @@ const rawMenuItems: MenuItem[] = [
     title: 'Ödeme Hareketleri',
     href: '/payment-transactions',
     icon: Wallet,
-    roles: ['PATRON', 'PERSONEL'] as const,
-  },
-  {
-    title: 'Stok Kartları',
-    href: '/stocks',
-    icon: Boxes,
     roles: ['PATRON', 'PERSONEL'] as const,
   },
   {

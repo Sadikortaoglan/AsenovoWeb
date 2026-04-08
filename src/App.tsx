@@ -39,7 +39,6 @@ import { EdmVknValidatePage } from './modules/edm/EdmVknValidatePage'
 import { EdmSettingsPage } from './modules/edm/EdmSettingsPage'
 import { MaintenanceCompletionsPage } from './modules/maintenance/MaintenanceCompletionsPage'
 import { PaymentTransactionsPage } from './modules/payments/PaymentTransactionsPage'
-import { StocksPage } from './modules/stocks/StocksPage'
 import { BrandsPage } from './modules/stocks/BrandsPage'
 import { ModelsPage } from './modules/stocks/ModelsPage'
 import { StockUnitsPage } from './modules/stocks/StockUnitsPage'
@@ -178,7 +177,6 @@ function AppRoutes() {
         <Route path="edm/vkn-validate" element={<EdmVknValidatePage />} />
         <Route path="edm/settings" element={<EdmSettingsPage />} />
         <Route path="payment-transactions" element={<PaymentTransactionsPage />} />
-        <Route path="stocks" element={<StocksPage />} />
         <Route path="stocks/brands" element={<BrandsPage />} />
         <Route path="stocks/models" element={<ModelsPage />} />
         <Route path="stocks/units" element={<StockUnitsPage />} />
