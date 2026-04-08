@@ -2,6 +2,10 @@ const PROD_MARKETING_HOSTS = new Set(['asenovo.com', 'www.asenovo.com'])
 const PROD_CENTRAL_APP_HOSTS = new Set(['app.asenovo.com', 'api.asenovo.com'])
 const LOCAL_CENTRAL_HOSTS = new Set(['localhost', '127.0.0.1', 'asenovo.local', 'www.asenovo.local', 'api.asenovo.local'])
 
+function isAbsoluteUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value)
+}
+
 function isTenantOrDemoHost(hostname: string): boolean {
   if (!hostname) return false
 
@@ -21,11 +25,16 @@ function isTenantOrDemoHost(hostname: string): boolean {
 
 export function resolveApiBaseUrl(): string {
   const configuredBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim()
+  const normalizedConfiguredBaseUrl = configuredBaseUrl.replace(/\/$/, '')
 
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname.toLowerCase()
 
     if (isTenantOrDemoHost(hostname)) {
+      if (hostname.endsWith('.asenovo.com') && isAbsoluteUrl(normalizedConfiguredBaseUrl)) {
+        return normalizedConfiguredBaseUrl
+      }
+
       return '/api'
     }
 
@@ -36,8 +45,8 @@ export function resolveApiBaseUrl(): string {
     }
   }
 
-  if (configuredBaseUrl && configuredBaseUrl !== '/api') {
-    return configuredBaseUrl.replace(/\/$/, '')
+  if (normalizedConfiguredBaseUrl && normalizedConfiguredBaseUrl !== '/api') {
+    return normalizedConfiguredBaseUrl
   }
 
   return configuredBaseUrl || '/api'
