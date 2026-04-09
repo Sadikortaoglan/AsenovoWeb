@@ -60,6 +60,11 @@ function normalizeRoleValue(role?: string | null): string {
   return `${role || ''}`.trim().toUpperCase()
 }
 
+export function isSystemAdminAlias(role?: string | null): boolean {
+  const value = normalizeRoleValue(role)
+  return value === 'SYSTEM_ADMIN' || value === 'ROLE_SYSTEM_ADMIN'
+}
+
 export function isKnownRoleInput(role?: string | null): boolean {
   const value = normalizeRoleValue(role)
   return value in ROLE_ALIASES

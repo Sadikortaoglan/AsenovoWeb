@@ -1,7 +1,7 @@
 import apiClient from '@/lib/api'
 import { resolveAuthApiBaseUrl } from '@/lib/api-base-url'
 import { unwrapResponse, type ApiResponse } from '@/lib/api-response'
-import {resolveRoleFromAuthSource, type AppRole, normalizeRole} from '@/lib/roles'
+import { resolveRoleFromAuthSource, type AppRole } from '@/lib/roles'
 
 export interface LoginRequest {
   username: string
@@ -116,26 +116,12 @@ export const authService = {
         const response = await apiClient.post<ApiResponse<LoginResponseData>>('/auth/login', credentials, {
             baseURL: authBaseUrl,
             headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      
-      const responseData = unwrapResponse(response.data)
-      
-      const loginResponse: LoginResponse = {
-        accessToken: responseData.accessToken,
-        refreshToken: responseData.refreshToken,
-        tokenType: responseData.tokenType,
-        user: {
-          id: responseData.userId,
-          username: responseData.username,
-          role: normalizeRole(responseData.role),
-          userType: responseData.userType,
-          b2bUnitId: responseData.b2bUnitId,
-        },
-      }
-      
-      return loginResponse
+                'Content-Type': 'application/json',
+            },
+        })
+
+        const responseData = unwrapResponse(response.data)
+        return mapLoginResponse(responseData)
     } catch (error: any) {
       const statusCode = error?.response?.status
       if (statusCode === 404 || statusCode === 405) {

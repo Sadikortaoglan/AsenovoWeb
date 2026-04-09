@@ -6,6 +6,7 @@ import {
   getDefaultRouteForRole,
   hasScopedAnyRole,
   hasScopedRole,
+  isSystemAdminAlias,
   resolveRoleFromAuthSource,
   type AnyRole,
   type AppRole,
@@ -55,6 +56,32 @@ function resolveScopeFromPayload(payload: Record<string, unknown> | null, role: 
   return fallback
 }
 
+function resolveRoleForScope(
+  role: AppRole,
+  scopeType: AuthScopeType,
+  payload: Record<string, unknown> | null,
+  fallbackRole?: string | null
+): AppRole {
+  const sourceUser = payload?.user && typeof payload.user === 'object' ? (payload.user as Record<string, unknown>) : null
+  const rawCandidates = [
+    payload?.role,
+    payload?.userRole,
+    payload?.authority,
+    sourceUser?.role,
+    sourceUser?.userRole,
+    sourceUser?.authority,
+    fallbackRole,
+  ]
+
+  const hasSystemAdminRole = rawCandidates.some((candidate) => isSystemAdminAlias(candidate == null ? null : String(candidate)))
+
+  if (scopeType === 'TENANT' && role === 'PLATFORM_ADMIN' && hasSystemAdminRole) {
+    return 'TENANT_ADMIN'
+  }
+
+  return role
+}
+
 function resolveTenantId(payload: Record<string, unknown> | null): number | null {
   if (!payload) return null
   const direct = payload.tenantId
@@ -91,8 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       const payload = decodeJwtPayload(token)
       if (payload) {
-        const role = resolveRoleFromAuthSource(payload)
-        const scope = resolveScopeFromPayload(payload, role, 'TENANT')
+        const resolvedRole = resolveRoleFromAuthSource(payload)
+        const scope = resolveScopeFromPayload(payload, resolvedRole, 'TENANT')
+        const role = resolveRoleForScope(resolvedRole, scope, payload)
         applyTenantTheme(extractTenantBrandColor(payload as Record<string, any>))
         setUser({
           id: Number(payload.userId || payload.sub || 0),
@@ -128,21 +156,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       payload,
       response.user.role || String(payload?.role || 'STAFF_USER')
     )
+    const authScopeType = resolveScopeFromPayload(payload, role, scopeType)
+    const effectiveRole = resolveRoleForScope(
+      role,
+      authScopeType,
+      payload,
+      response.user.role || String(payload?.role || 'STAFF_USER')
+    )
 
-    if (scopeType === 'PLATFORM' && role !== 'PLATFORM_ADMIN') {
+    if (scopeType === 'PLATFORM' && effectiveRole !== 'PLATFORM_ADMIN') {
       throw new Error('Bu alana erişim yetkiniz bulunmuyor.')
     }
 
+    if (scopeType === 'TENANT' && authScopeType === 'PLATFORM') {
+      throw new Error('Platform kullanıcıları bu ekrandan giriş yapamaz.')
+    }
     tokenStorage.setTokens(response.accessToken, response.refreshToken || response.accessToken)
 
-    const authScopeType = resolveScopeFromPayload(payload, role, scopeType)
     applyTenantTheme(extractTenantBrandColor((payload as Record<string, any>) || (response.user as any)))
 
     const userData: User = {
       id: response.user.id || Number(payload?.userId || payload?.sub || 0),
       username: response.user.username || String(payload?.username || payload?.sub || credentials.username),
-      role,
-      effectiveRole: role,
+      role: effectiveRole,
+      effectiveRole,
       authScopeType,
       userType: response.user.userType || (payload?.userType ? String(payload.userType) : undefined),
       b2bUnitId:

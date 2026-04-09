@@ -21,6 +21,7 @@ function isTenantOrDemoHost(hostname: string): boolean {
 
 export function resolveApiBaseUrl(): string {
   const configuredBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim()
+  const normalizedConfiguredBaseUrl = configuredBaseUrl.replace(/\/$/, '')
 
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname.toLowerCase()
@@ -36,8 +37,8 @@ export function resolveApiBaseUrl(): string {
     }
   }
 
-  if (configuredBaseUrl && configuredBaseUrl !== '/api') {
-    return configuredBaseUrl.replace(/\/$/, '')
+  if (normalizedConfiguredBaseUrl && normalizedConfiguredBaseUrl !== '/api') {
+    return normalizedConfiguredBaseUrl
   }
 
   return configuredBaseUrl || '/api'

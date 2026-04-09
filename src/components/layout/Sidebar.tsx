@@ -660,7 +660,7 @@ const STORAGE_KEY = 'sidebar-expanded-menu'
 const COLLAPSED_STORAGE_KEY = 'sidebar-collapsed'
 
 export function NavigationContent({ onNavigate, className, collapsed = false }: NavigationContentProps) {
-  const { hasRole, logout } = useAuth()
+  const { hasRole, logout, user } = useAuth()
   const location = useLocation()
   const navRef = useRef<HTMLElement | null>(null)
   const [expandedMenu, setExpandedMenu] = useState<string | null>(() => {
@@ -670,10 +670,12 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
     return null
   })
   const [isNavScrolled, setIsNavScrolled] = useState(false)
+  const shouldFetchTenantCounts = user?.authScopeType === 'TENANT'
 
   const { data: counts } = useQuery({
     queryKey: ['dashboard', 'counts'],
     queryFn: () => dashboardService.getCounts(),
+    enabled: shouldFetchTenantCounts,
     refetchInterval: 30000,
   })
 
@@ -745,7 +747,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
   }, [])
 
   const getBadgeCount = (href: string): number | undefined => {
-    if (!counts) return undefined
+    if (!shouldFetchTenantCounts || !counts) return undefined
     if (href === '/maintenances/plan') return counts.maintenancePlansUpcoming
     if (href === '/maintenances/list') {
       return (counts.maintenancePlansUpcoming || 0) + (counts.maintenanceSessionsCompleted || 0)
@@ -760,7 +762,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
   }
 
   const getParentBadgeCount = (children: MenuItem[]) => {
-    if (!counts) return 0
+    if (!shouldFetchTenantCounts || !counts) return 0
 
     return children.reduce((sum, child) => {
       if (!child.href) return sum

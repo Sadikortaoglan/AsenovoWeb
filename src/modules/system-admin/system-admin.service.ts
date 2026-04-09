@@ -94,6 +94,10 @@ export interface SystemAdminB2BUnitLookupOption {
   name: string
 }
 
+function isPresent<T>(value: T | null | undefined): value is T {
+  return value != null
+}
+
 function toNumber(value: unknown): number | undefined {
   if (value == null) return undefined
   const numericValue = Number(value)
@@ -202,8 +206,8 @@ function normalizeB2BUnitLookupOption(raw: unknown): SystemAdminB2BUnitLookupOpt
   if (!raw || typeof raw !== 'object') return null
   const source = raw as Record<string, unknown>
   const id = toNumber(source.id)
-  const name = toText(source.name)
-  if (!id || !name) return null
+  const name = toText(source.name ?? source.unitName ?? source.companyName ?? source.title)
+  if (id == null || !name) return null
   return { id, name }
 }
 
@@ -407,11 +411,10 @@ export const systemAdminService = {
       const { data } = await apiClient.get<ApiResponse<SystemAdminB2BUnitLookupOption[]> | unknown>(path, {
         params: { query },
       })
-      const rows = unwrapArrayResponse<unknown>(
-        data as ApiResponse<unknown[]> | unknown[],
-        true,
-      )
-      return normalizeB2BUnitLookupRows(rows)
+        const rows = unwrapArrayResponse<unknown>(data as ApiResponse<unknown[]> | unknown[], true)
+        .map(normalizeB2BUnitLookupOption)
+        .filter(isPresent)
+        return normalizeB2BUnitLookupRows(rows)
     }
 
     try {

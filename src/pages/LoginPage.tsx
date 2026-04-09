@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { Building2, ArrowUpDown, Shield, BarChart3 } from 'lucide-react'
+import { detectTenantFromHostname } from '@/lib/tenant'
 
 export function LoginPage() {
   const [username, setUsername] = useState('')
@@ -14,7 +15,11 @@ export function LoginPage() {
   const { login, isAuthenticated, getDefaultRoute } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const tenantInfo = detectTenantFromHostname()
 
+  if (tenantInfo.isMarketingHost) {
+    return <Navigate to="/" replace />
+  }
   // Login başarılı olduğunda otomatik yönlendirme
   useEffect(() => {
     if (isAuthenticated) {
@@ -129,9 +134,6 @@ export function LoginPage() {
                 className="mt-6 w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/50 transition-all duration-200 hover:from-emerald-400 hover:to-teal-400 hover:shadow-emerald-400/70 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
-              </Button>
-              <Button asChild type="button" variant="outline" className="w-full border-gray-500 text-gray-200">
-                <Link to="/platform/login">Platform Girişi</Link>
               </Button>
             </form>
           </div>
