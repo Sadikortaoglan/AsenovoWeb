@@ -149,7 +149,7 @@ export function PlatformLoginPage() {
               {isSubmitting ? 'Giriş yapılıyor...' : 'Giriş Yap'}
             </Button>
             <Button asChild variant="outline" className="w-full" type="button" disabled={isSubmitting}>
-              <Link to="/login">Tenant Girişine Dön</Link>
+              <Link to="/">Ana Sayfaya Dön</Link>
             </Button>
           </form>
         </CardContent>
