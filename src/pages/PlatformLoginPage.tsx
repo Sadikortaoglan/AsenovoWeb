@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Shield } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
+import { detectTenantFromHostname } from '@/lib/tenant'
 
 interface FormErrors {
   username?: string
@@ -44,6 +45,11 @@ export function PlatformLoginPage() {
   const { platformLogin, isAuthenticated, getDefaultRoute } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const tenantInfo = detectTenantFromHostname()
+
+  if (tenantInfo.requiresTenant) {
+    return <Navigate to="/login" replace />
+  }
 
   const setupStatusQuery = useQuery({
     queryKey: ['platform', 'setup-status'],

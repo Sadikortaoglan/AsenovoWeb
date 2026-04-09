@@ -31,6 +31,9 @@ const isAuthEndpointRequest = (url: string) =>
   url.includes('/platform/setup-status')
 
 const resolveLoginRouteByToken = () => {
+  const tenantInfo = detectTenantFromHostname()
+  if (tenantInfo.requiresTenant) return '/login'
+
   const token = tokenStorage.getAccessToken()
   if (!token) return '/login'
 
