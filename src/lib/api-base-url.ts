@@ -2,10 +2,6 @@ const PROD_MARKETING_HOSTS = new Set(['asenovo.com', 'www.asenovo.com'])
 const PROD_CENTRAL_APP_HOSTS = new Set(['app.asenovo.com', 'api.asenovo.com'])
 const LOCAL_CENTRAL_HOSTS = new Set(['localhost', '127.0.0.1', 'asenovo.local', 'www.asenovo.local', 'api.asenovo.local'])
 
-function isAbsoluteUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value)
-}
-
 function isTenantOrDemoHost(hostname: string): boolean {
   if (!hostname) return false
 
@@ -31,10 +27,6 @@ export function resolveApiBaseUrl(): string {
     const hostname = window.location.hostname.toLowerCase()
 
     if (isTenantOrDemoHost(hostname)) {
-      if (hostname.endsWith('.asenovo.com') && isAbsoluteUrl(normalizedConfiguredBaseUrl)) {
-        return normalizedConfiguredBaseUrl
-      }
-
       return '/api'
     }
 
