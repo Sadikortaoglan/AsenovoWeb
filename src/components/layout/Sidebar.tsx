@@ -436,7 +436,7 @@ const fromHostnameTenant = () => {
   if (!firstLabel || firstLabel === 'localhost' || firstLabel === '127' || firstLabel === 'www') {
     return null
   }
-  if (firstLabel === 'sara' || firstLabel === 'asenovo') {
+  if (firstLabel === 'asenovo') {
     return null
   }
 
