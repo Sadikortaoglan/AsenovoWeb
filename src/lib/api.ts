@@ -40,6 +40,7 @@ const resolveLoginRouteByToken = () => {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]))
     const role = resolveRoleFromAuthSource(payload as Record<string, unknown>)
+    if (tenantInfo.requiresTenant) return '/login'
     return role === 'PLATFORM_ADMIN' ? '/platform/login' : '/login'
   } catch {
     return '/login'
