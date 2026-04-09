@@ -394,6 +394,19 @@ const rawMenuItems: MenuItem[] = [
     icon: FileSearch,
     roles: ['PATRON', 'PERSONEL'] as const,
   },
+  {
+    title: 'Ayarlar',
+    icon: Settings,
+    roles: ['PATRON'] as const,
+    children: [
+      {
+        title: 'Firma Ayarları',
+        href: '/settings/company',
+        icon: Settings,
+        roles: ['PATRON'] as const,
+      },
+    ],
+  },
 ]
 
 const normalizeMenuTreeRoles = (items: MenuItem[]): MenuItem[] =>
@@ -531,6 +544,7 @@ const resolveTenantBrand = (userLike?: unknown): TenantBrand => {
       const tenantObject = (payload?.tenant && typeof payload.tenant === 'object') ? payload.tenant : undefined
 
       name =
+        name ||
         payload?.tenantName ||
         payload?.companyName ||
         payload?.organizationName ||
@@ -539,6 +553,7 @@ const resolveTenantBrand = (userLike?: unknown): TenantBrand => {
         ''
 
       logoUrl =
+        logoUrl ||
         payload?.tenantLogo ||
         payload?.tenantLogoUrl ||
         payload?.logoUrl ||

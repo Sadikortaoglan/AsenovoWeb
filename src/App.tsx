@@ -59,6 +59,7 @@ import { CollectionReceiptsPage } from './modules/financial/CollectionReceiptsPa
 import { CollectionReceiptPrintPage } from './modules/financial/CollectionReceiptPrintPage'
 import { BanksPage } from './modules/financial/BanksPage'
 import { CashboxesPage } from './modules/definitions/CashboxesPage'
+import { CompanySettingsPage } from './modules/settings/CompanySettingsPage'
 import { SystemAdminTenantListPage } from './modules/system-admin/SystemAdminTenantListPage'
 import { SystemAdminDashboardPage } from './modules/system-admin/SystemAdminDashboardPage'
 import { SystemAdminTenantDetailPage } from './modules/system-admin/SystemAdminTenantDetailPage'
@@ -254,6 +255,14 @@ function AppRoutes() {
         <Route path="financial-operations/collection-receipts" element={<CollectionReceiptsPage />} />
         <Route path="financial-operations/banks" element={<BanksPage />} />
         <Route path="definitions/cashboxes" element={<CashboxesPage />} />
+        <Route
+          path="settings/company"
+          element={
+            <ProtectedRoute requireRole="TENANT_ADMIN">
+              <CompanySettingsPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="payments" element={<PaymentsPage />} />
         <Route
           path="users"
