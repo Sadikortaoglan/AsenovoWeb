@@ -240,7 +240,8 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route path="qr-codes" element={<QrCodesPage />} />
+        <Route path="elevator-qrcodes" element={<QrCodesPage />} />
+        <Route path="qr-codes" element={<Navigate to="/elevator-qrcodes" replace />} />
         <Route path="warnings" element={<WarningsPage />} />
         <Route path="parts" element={<PartsPage />} />
         <Route path="offers" element={<OffersPage />} />
