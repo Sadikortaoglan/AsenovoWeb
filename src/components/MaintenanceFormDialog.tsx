@@ -157,38 +157,38 @@ export function MaintenanceFormDialog({
   }
 
   return (
-    <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>Yeni Bakım Ekle</DialogTitle>
-        <DialogDescription>
+    <DialogContent className="h-[100dvh] w-screen max-w-none translate-y-0 rounded-none border-0 px-0 py-0 sm:h-auto sm:w-[95vw] sm:max-w-2xl sm:rounded-[12px] sm:border sm:px-0 sm:py-0">
+      <DialogHeader className="sticky top-0 z-10 bg-white px-5 pb-4 pt-5 sm:px-6">
+        <DialogTitle className="pr-8 text-[2rem] leading-none sm:text-[20px]">Yeni Bakım Ekle</DialogTitle>
+        <DialogDescription className="text-base sm:text-[13px]">
           {elevatorName ? `${elevatorName}` : `Asansör ID: ${elevatorId}`}
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit}>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-5 px-5 py-5 sm:gap-4 sm:px-6 sm:py-4">
           <div className="space-y-2">
-            <Label htmlFor="tarih">Bakım Tarihi *</Label>
+            <Label htmlFor="tarih" className="text-base font-semibold sm:text-sm">Bakım Tarihi *</Label>
             <Input
               id="tarih"
               type="date"
               value={formData.tarih}
               onChange={(e) => setFormData({ ...formData, tarih: e.target.value })}
               required
-              className="w-full"
+              className="h-16 w-full rounded-2xl px-4 text-xl sm:h-10 sm:rounded-md sm:px-3 sm:text-sm"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="aciklama">Açıklama *</Label>
+            <Label htmlFor="aciklama" className="text-base font-semibold sm:text-sm">Açıklama *</Label>
             <Input
               id="aciklama"
               value={formData.aciklama}
               onChange={(e) => setFormData({ ...formData, aciklama: e.target.value })}
               required
-              className="w-full"
+              className="h-16 w-full rounded-2xl px-4 text-lg sm:h-10 sm:rounded-md sm:px-3 sm:text-sm"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ucret">Ücret *</Label>
+            <Label htmlFor="ucret" className="text-base font-semibold sm:text-sm">Ücret *</Label>
             <Input
               id="ucret"
               type="number"
@@ -196,21 +196,21 @@ export function MaintenanceFormDialog({
               value={formData.ucret}
               onChange={(e) => setFormData({ ...formData, ucret: (e.target.value === '' ? Number.NaN : Number(e.target.value)) })}
               required
-              className="w-full"
+              className="h-16 w-full rounded-2xl px-4 text-lg sm:h-10 sm:rounded-md sm:px-3 sm:text-sm"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="teknisyenUserId">Teknisyen</Label>
+            <Label htmlFor="teknisyenUserId" className="text-base font-semibold sm:text-sm">Teknisyen</Label>
             <Input
               id="teknisyenUserId"
               value={user?.username || 'Otomatik doldurulacak (Giriş yapan kullanıcı)'}
               disabled
-              className="w-full bg-muted"
+              className="h-16 w-full rounded-2xl bg-muted px-4 text-lg sm:h-10 sm:rounded-md sm:px-3 sm:text-sm"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="photos">Fotoğraflar * (Minimum 4 adet)</Label>
-            <div className="border-2 border-dashed rounded-lg p-4">
+            <Label htmlFor="photos" className="text-base font-semibold sm:text-sm">Fotoğraflar * (Minimum 4 adet)</Label>
+            <div className="rounded-2xl border-2 border-dashed p-4 sm:rounded-lg">
               <Input
                 ref={fileInputRef}
                 id="photos"
@@ -218,25 +218,25 @@ export function MaintenanceFormDialog({
                 accept="image/*"
                 multiple
                 onChange={handlePhotoChange}
-                className="w-full"
+                className="h-14 w-full rounded-2xl px-3 text-base file:mr-3 file:rounded-xl file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-base file:font-semibold sm:h-10 sm:rounded-md sm:text-sm sm:file:rounded-md sm:file:px-3 sm:file:py-1.5 sm:file:text-sm"
               />
-              <div className="mt-2 text-sm text-muted-foreground">
+              <div className="mt-3 text-base text-muted-foreground sm:mt-2 sm:text-sm">
                 Seçilen fotoğraf sayısı: {formData.photos.length} / 4 (minimum)
               </div>
               {photoError && (
-                <p className="mt-2 text-sm text-destructive">{photoError}</p>
+                <p className="mt-2 text-base text-destructive sm:text-sm">{photoError}</p>
               )}
               {formData.photos.length > 0 && (
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 space-y-3 sm:space-y-2">
                   {formData.photos.map((photo, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                      <span className="text-sm truncate flex-1">{photo.name}</span>
+                    <div key={index} className="flex items-center justify-between rounded-xl bg-muted p-3 sm:rounded sm:p-2">
+                      <span className="flex-1 truncate pr-3 text-sm sm:text-sm">{photo.name}</span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() => removePhoto(index)}
-                        className="h-8 w-8"
+                        className="h-10 w-10 shrink-0 sm:h-8 sm:w-8"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -247,16 +247,16 @@ export function MaintenanceFormDialog({
             </div>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 bg-white px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-4 sm:static sm:bg-transparent sm:px-6 sm:pb-0 sm:pt-6">
           {onClose && (
-            <Button type="button" variant="outline" onClick={handleClose} className="w-full sm:w-auto min-h-[44px]">
+            <Button type="button" variant="outline" onClick={handleClose} className="h-14 w-full rounded-2xl text-base sm:min-h-[44px] sm:h-11 sm:w-auto sm:rounded-md sm:text-sm">
               İptal
             </Button>
           )}
           <Button 
             type="submit" 
             disabled={createMutation.isPending || formData.photos.length < 4} 
-            className="w-full sm:w-auto min-h-[44px]"
+            className="h-14 w-full rounded-2xl text-base sm:min-h-[44px] sm:h-11 sm:w-auto sm:rounded-md sm:text-sm"
           >
             {createMutation.isPending ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>

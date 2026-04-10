@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { BrowserQRCodeReader } from '@zxing/browser'
 import { Button } from '@/components/ui/button'
 
 interface MobileQrScannerProps {
@@ -17,10 +18,12 @@ export function MobileQrScanner({ open, enabled, onDetected }: MobileQrScannerPr
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef<number | null>(null)
   const detectorRef = useRef<any>(null)
+  const fallbackReaderRef = useRef<BrowserQRCodeReader | null>(null)
   const isActiveRef = useRef(false)
   const [isStarting, setIsStarting] = useState(false)
   const [isRunning, setIsRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [scannerEngine, setScannerEngine] = useState<'barcode-detector' | 'fallback' | null>(null)
   const lastAttemptLogRef = useRef(0)
   const lastFailureLogRef = useRef(0)
 
@@ -37,6 +40,9 @@ export function MobileQrScanner({ open, enabled, onDetected }: MobileQrScannerPr
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
+    detectorRef.current = null
+    fallbackReaderRef.current = null
+    setScannerEngine(null)
     setIsRunning(false)
     setIsStarting(false)
     console.log('[QRScanner] camera stopped')
@@ -52,10 +58,9 @@ export function MobileQrScanner({ open, enabled, onDetected }: MobileQrScannerPr
       return
     }
 
-    const BarcodeDetectorCtor = (window as any).BarcodeDetector
-    if (!BarcodeDetectorCtor) {
-      setError('Bu cihazda QR tarama desteği yok (BarcodeDetector bulunamadı).')
-      console.error('[QRScanner] BarcodeDetector not available')
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('Bu tarayıcı kamera erişimini desteklemiyor.')
+      console.error('[QRScanner] getUserMedia not available')
       return
     }
 
@@ -64,7 +69,15 @@ export function MobileQrScanner({ open, enabled, onDetected }: MobileQrScannerPr
       setIsStarting(true)
       console.log('[QRScanner] camera start requested')
 
-      detectorRef.current = new BarcodeDetectorCtor({ formats: ['qr_code'] })
+      const BarcodeDetectorCtor = (window as any).BarcodeDetector
+      detectorRef.current = BarcodeDetectorCtor ? new BarcodeDetectorCtor({ formats: ['qr_code'] }) : null
+      fallbackReaderRef.current = new BrowserQRCodeReader(undefined, {
+        delayBetweenScanAttempts: 200,
+        delayBetweenScanSuccess: 500,
+        tryPlayVideoTimeout: 3000,
+      })
+      setScannerEngine(detectorRef.current ? 'barcode-detector' : 'fallback')
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -80,6 +93,10 @@ export function MobileQrScanner({ open, enabled, onDetected }: MobileQrScannerPr
       }
 
       streamRef.current = stream
+      videoRef.current.setAttribute('playsinline', 'true')
+      videoRef.current.setAttribute('muted', 'true')
+      videoRef.current.muted = true
+      videoRef.current.autoplay = true
       videoRef.current.srcObject = stream
       await videoRef.current.play()
 
@@ -88,7 +105,7 @@ export function MobileQrScanner({ open, enabled, onDetected }: MobileQrScannerPr
       console.log('[QRScanner] camera started')
 
       const scanFrame = async () => {
-        if (!isActiveRef.current || !videoRef.current || !canvasRef.current || !detectorRef.current) return
+        if (!isActiveRef.current || !videoRef.current || !canvasRef.current) return
 
         const video = videoRef.current
         if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
@@ -105,13 +122,24 @@ export function MobileQrScanner({ open, enabled, onDetected }: MobileQrScannerPr
           if (ctx) {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
             try {
-              const codes = await detectorRef.current.detect(canvas)
-              const qr = codes?.find((code: any) => typeof code?.rawValue === 'string' && code.rawValue.length > 0)
-              if (qr?.rawValue) {
-                console.log('[QRScanner] scan success', qr.rawValue)
-                onDetected(qr.rawValue)
-                stopScanner()
-                return
+              if (detectorRef.current) {
+                const codes = await detectorRef.current.detect(canvas)
+                const qr = codes?.find((code: any) => typeof code?.rawValue === 'string' && code.rawValue.length > 0)
+                if (qr?.rawValue) {
+                  console.log('[QRScanner] scan success (BarcodeDetector)', qr.rawValue)
+                  onDetected(qr.rawValue)
+                  stopScanner()
+                  return
+                }
+              } else if (fallbackReaderRef.current) {
+                const result = fallbackReaderRef.current.decodeFromCanvas(canvas)
+                const qrText = result?.getText?.()
+                if (qrText) {
+                  console.log('[QRScanner] scan success (fallback)', qrText)
+                  onDetected(qrText)
+                  stopScanner()
+                  return
+                }
               }
 
               if (now - lastFailureLogRef.current > 3000) {
@@ -137,7 +165,15 @@ export function MobileQrScanner({ open, enabled, onDetected }: MobileQrScannerPr
       })
     } catch (cameraError: any) {
       console.error('[QRScanner] camera start failure', cameraError)
-      setError(cameraError?.message || 'Kamera başlatılamadı.')
+      if (cameraError?.name === 'NotAllowedError' || cameraError?.name === 'PermissionDeniedError') {
+        setError('Kamera izni reddedildi. Tarayıcı ayarlarından kamera iznini açın.')
+      } else if (cameraError?.name === 'NotFoundError' || cameraError?.name === 'DevicesNotFoundError') {
+        setError('Bu cihazda kullanılabilir arka kamera bulunamadı.')
+      } else if (cameraError?.name === 'NotReadableError' || cameraError?.name === 'TrackStartError') {
+        setError('Kamera şu anda başka bir uygulama tarafından kullanılıyor olabilir.')
+      } else {
+        setError(cameraError?.message || 'Kamera başlatılamadı.')
+      }
       setIsRunning(false)
     } finally {
       setIsStarting(false)
@@ -167,6 +203,14 @@ export function MobileQrScanner({ open, enabled, onDetected }: MobileQrScannerPr
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
+
+      {isRunning && scannerEngine ? (
+        <p className="text-xs text-muted-foreground">
+          {scannerEngine === 'barcode-detector'
+            ? 'QR kod aranıyor...'
+            : 'QR kod aranıyor... Safari uyumlu yedek tarayıcı aktif.'}
+        </p>
+      ) : null}
 
       {error && <p className="text-xs text-destructive">{error}</p>}
 

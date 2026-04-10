@@ -23,7 +23,7 @@ const pickString = (source: RawRecord, keys: string[]): string => {
 }
 
 const pickElevatorId = (source: RawRecord): number | string | null => {
-  const direct = source.elevatorId ?? source.elevator_id ?? source.asansorId
+  const direct = source.elevatorId ?? source.elevator_id ?? source.elevatorID ?? source.elevatorid ?? source.asansorId
   if (typeof direct === 'number' || typeof direct === 'string') return direct
 
   const nested = source.elevator
@@ -74,9 +74,9 @@ const normalizeQrCodeItem = (raw: RawRecord): QrCodeItem => {
   const fallbackImageUrl =
     pickString(raw, ['qrImageUrl', 'qrImage', 'qrUrl', 'qrCodeUrl', 'imageUrl']) ||
     (typeof elevatorId === 'number' || typeof elevatorId === 'string'
-      ? `/api/elevators/${elevatorId}/qr/download?format=png`
+      ? `/api/elevators/${elevatorId}/qr`
       : '')
-  const hasQr = explicitHasQr ?? Boolean(qrPngBase64 || fallbackImageUrl)
+  const hasQr = Boolean(qrPngBase64 || fallbackImageUrl || explicitHasQr === true)
   const qrImageUrl = hasQr
     ? (qrPngBase64 ? `data:image/png;base64,${qrPngBase64}` : fallbackImageUrl)
     : ''
@@ -87,9 +87,33 @@ const normalizeQrCodeItem = (raw: RawRecord): QrCodeItem => {
     id,
     qrImageUrl,
     hasQr,
-    elevatorName: pickString(raw, ['elevatorName', 'elevator_name', 'asansorAdi']) || '-',
-    buildingName: pickString(raw, ['buildingName', 'building_name', 'binaAdi']) || '-',
-    customerName: pickString(raw, ['customerName', 'customer_name', 'musteriAdi']) || '-',
+    elevatorName:
+      pickString(raw, [
+        'elevatorName',
+        'elevator_name',
+        'asansorAdi',
+        'elevatorIdentityNumber',
+        'identityNumber',
+      ]) || '-',
+    buildingName:
+      pickString(raw, [
+        'facilityName',
+        'facility_name',
+        'buildingName',
+        'building_name',
+        'binaAdi',
+        'tesisAdi',
+      ]) || '-',
+    customerName:
+      pickString(raw, [
+        'b2bUnitName',
+        'b2bunitName',
+        'cariName',
+        'cariAdi',
+        'customerName',
+        'customer_name',
+        'musteriAdi',
+      ]) || '-',
     printUrl,
   }
 }

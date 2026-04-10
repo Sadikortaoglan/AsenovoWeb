@@ -27,11 +27,12 @@ import {
   FileBadge2,
   FileSignature,
   Wallet,
-  Boxes,
   FileSpreadsheet,
   FileSearch,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
+  QrCode,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -77,6 +78,12 @@ const rawMenuItems: MenuItem[] = [
         icon: FileSignature,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
+      {
+        title: 'Asansör QR Kodları',
+        href: '/elevator-qrcodes',
+        icon: QrCode,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
     ],
   },
   {
@@ -106,12 +113,6 @@ const rawMenuItems: MenuItem[] = [
         title: 'Cari Gruplar',
         href: '/b2bunit-groups',
         icon: Settings,
-        roles: ['PATRON', 'PERSONEL'] as const,
-      },
-      {
-        title: 'Para Birimleri',
-        href: '/currencies',
-        icon: Wallet,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
       {
@@ -173,10 +174,53 @@ const rawMenuItems: MenuItem[] = [
     roles: ['PATRON', 'PERSONEL'] as const,
   },
   {
-    title: 'Stok',
-    href: '/parts',
+    title: 'Stoklar',
     icon: Package,
     roles: ['PATRON', 'PERSONEL'] as const,
+    children: [
+      {
+        title: 'Stok Listesi',
+        href: '/parts',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Stok Transferleri',
+        href: '/stocks/transfers',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Markalar',
+        href: '/stocks/brands',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Modeller',
+        href: '/stocks/models',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Stok Birimleri',
+        href: '/stocks/units',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Stok Grupları',
+        href: '/stocks/groups',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Depolar',
+        href: '/stocks/warehouses',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+    ],
   },
   {
     title: 'Teklifler',
@@ -228,10 +272,47 @@ const rawMenuItems: MenuItem[] = [
     roles: ['PATRON', 'PERSONEL'] as const,
   },
   {
-    title: 'Tahsilat Fişleri',
-    href: '/payments',
+    title: 'Finansal İşlemler',
     icon: Receipt,
     roles: ['PATRON', 'PERSONEL'] as const,
+    children: [
+      {
+        title: 'Hızlı Tahsilat',
+        href: '/financial-operations/quick-collection',
+        icon: Wallet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Tahsilat Fişleri',
+        href: '/financial-operations/collection-receipts',
+        icon: Receipt,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Bankalar',
+        href: '/financial-operations/banks',
+        icon: Wallet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Kasalar',
+        href: '/definitions/cashboxes',
+        icon: Wallet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Para Birimleri',
+        href: '/currencies',
+        icon: Wallet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'KDV Oranları',
+        href: '/financial-operations/vat-rates',
+        icon: FileSpreadsheet,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+    ],
   },
   {
     title: 'Kullanıcılar',
@@ -314,12 +395,6 @@ const rawMenuItems: MenuItem[] = [
     roles: ['PATRON', 'PERSONEL'] as const,
   },
   {
-    title: 'Stok Kartları',
-    href: '/stocks',
-    icon: Boxes,
-    roles: ['PATRON', 'PERSONEL'] as const,
-  },
-  {
     title: 'Teklif Yönetimi',
     href: '/proposals',
     icon: FileSpreadsheet,
@@ -330,6 +405,25 @@ const rawMenuItems: MenuItem[] = [
     href: '/reports/status-detections',
     icon: FileSearch,
     roles: ['PATRON', 'PERSONEL'] as const,
+  },
+  {
+    title: 'Ayarlar',
+    icon: Settings,
+    roles: ['PATRON', 'PERSONEL', 'CARI_USER'] as const,
+    children: [
+      {
+        title: 'Firma Ayarları',
+        href: '/settings/company',
+        icon: Settings,
+        roles: ['PATRON'] as const,
+      },
+      {
+        title: 'Şifre Değiştir',
+        href: '/settings/change-password',
+        icon: Settings,
+        roles: ['PATRON', 'PERSONEL', 'CARI_USER'] as const,
+      },
+    ],
   },
 ]
 
@@ -373,7 +467,7 @@ const fromHostnameTenant = () => {
   if (!firstLabel || firstLabel === 'localhost' || firstLabel === '127' || firstLabel === 'www') {
     return null
   }
-  if (firstLabel === 'sara' || firstLabel === 'asenovo') {
+  if (firstLabel === 'asenovo') {
     return null
   }
 
@@ -442,7 +536,7 @@ const readFromStorage = () => {
   return null
 }
 
-const resolveTenantBrand = (userLike?: unknown): TenantBrand => {
+export const resolveTenantBrand = (userLike?: unknown): TenantBrand => {
   const userObj = (userLike && typeof userLike === 'object') ? (userLike as any) : undefined
   let name = ''
   let logoUrl: string | undefined
@@ -468,6 +562,7 @@ const resolveTenantBrand = (userLike?: unknown): TenantBrand => {
       const tenantObject = (payload?.tenant && typeof payload.tenant === 'object') ? payload.tenant : undefined
 
       name =
+        name ||
         payload?.tenantName ||
         payload?.companyName ||
         payload?.organizationName ||
@@ -476,6 +571,7 @@ const resolveTenantBrand = (userLike?: unknown): TenantBrand => {
         ''
 
       logoUrl =
+        logoUrl ||
         payload?.tenantLogo ||
         payload?.tenantLogoUrl ||
         payload?.logoUrl ||
@@ -597,7 +693,7 @@ const STORAGE_KEY = 'sidebar-expanded-menu'
 const COLLAPSED_STORAGE_KEY = 'sidebar-collapsed'
 
 export function NavigationContent({ onNavigate, className, collapsed = false }: NavigationContentProps) {
-  const { hasRole, logout } = useAuth()
+  const { hasRole, logout, user } = useAuth()
   const location = useLocation()
   const navRef = useRef<HTMLElement | null>(null)
   const [expandedMenu, setExpandedMenu] = useState<string | null>(() => {
@@ -607,10 +703,12 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
     return null
   })
   const [isNavScrolled, setIsNavScrolled] = useState(false)
+  const shouldFetchTenantCounts = user?.authScopeType === 'TENANT'
 
   const { data: counts } = useQuery({
     queryKey: ['dashboard', 'counts'],
     queryFn: () => dashboardService.getCounts(),
+    enabled: shouldFetchTenantCounts,
     refetchInterval: 30000,
   })
 
@@ -626,7 +724,9 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
     if (pathname === href) return true
     if (href === '/elevator-labels' && pathname.startsWith('/elevator-labels/')) return true
     if (href === '/elevator-contracts' && pathname.startsWith('/elevator-contracts/')) return true
+    if (href === '/elevator-qrcodes' && pathname.startsWith('/elevator-qrcodes/')) return true
     if (href === '/facilities' && pathname.startsWith('/facilities/')) return true
+    if (href === '/financial-operations/collection-receipts' && pathname.startsWith('/financial-operations/collection-receipts')) return true
     if (href === '/system-admin/tenants' && pathname.startsWith('/system-admin/tenants/')) return true
     if (href === '/system-admin/tenant-jobs' && pathname.startsWith('/system-admin/tenant-jobs/')) return true
     return false
@@ -681,7 +781,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
   }, [])
 
   const getBadgeCount = (href: string): number | undefined => {
-    if (!counts) return undefined
+    if (!shouldFetchTenantCounts || !counts) return undefined
     if (href === '/maintenances/plan') return counts.maintenancePlansUpcoming
     if (href === '/maintenances/list') {
       return (counts.maintenancePlansUpcoming || 0) + (counts.maintenanceSessionsCompleted || 0)
@@ -691,12 +791,13 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
     if (href === '/elevators') return counts.elevators
     if (href === '/elevator-labels') return counts.elevators
     if (href === '/elevator-contracts') return counts.elevators
+    if (href === '/elevator-qrcodes') return counts.elevators
     if (href === '/maintenance-completions') return counts.maintenanceSessionsCompleted
     return undefined
   }
 
   const getParentBadgeCount = (children: MenuItem[]) => {
-    if (!counts) return 0
+    if (!shouldFetchTenantCounts || !counts) return 0
 
     return children.reduce((sum, child) => {
       if (!child.href) return sum
@@ -707,6 +808,7 @@ export function NavigationContent({ onNavigate, className, collapsed = false }: 
       if (child.href === '/elevators') return sum + (counts.elevators || 0)
       if (child.href === '/elevator-labels') return sum + (counts.elevators || 0)
       if (child.href === '/elevator-contracts') return sum + (counts.elevators || 0)
+      if (child.href === '/elevator-qrcodes') return sum + (counts.elevators || 0)
       if (child.href === '/maintenance-completions') return sum + (counts.maintenanceSessionsCompleted || 0)
       return sum
     }, 0)
@@ -853,5 +955,47 @@ export function Sidebar() {
       </div>
       <NavigationContent collapsed={collapsed} />
     </aside>
+  )
+}
+
+export function MobileSidebarPanel({
+  onNavigate,
+  onClose,
+}: {
+  onNavigate?: () => void
+  onClose?: () => void
+}) {
+  const { user } = useAuth()
+  const tenantBrand = useMemo(() => resolveTenantBrand(user), [user])
+
+  return (
+    <div className="sidebar-shell sidebar-shell--mobile" aria-label="Mobil Sidebar">
+      <div className="sidebar-brand">
+        {tenantBrand.logoUrl ? (
+          <img
+            src={tenantBrand.logoUrl}
+            alt={tenantBrand.name}
+            className="sidebar-brand__logo"
+          />
+        ) : (
+          <div className="sidebar-brand__avatar" aria-hidden="true">
+            {tenantBrand.initials}
+          </div>
+        )}
+        <div className="sidebar-brand__text">
+          <h1 className="sidebar-brand__title">{tenantBrand.name}</h1>
+          <p className="sidebar-brand__subtitle">{tenantBrand.subtitle}</p>
+        </div>
+        <button
+          type="button"
+          className="sidebar-brand__close"
+          onClick={onClose}
+          aria-label="Menüyü kapat"
+        >
+          <X className="sidebar-brand__close-icon" />
+        </button>
+      </div>
+      <NavigationContent onNavigate={onNavigate} />
+    </div>
   )
 }

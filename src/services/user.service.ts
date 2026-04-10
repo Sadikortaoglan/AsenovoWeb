@@ -2,7 +2,7 @@ import apiClient from '@/lib/api'
 import { unwrapResponse, unwrapArrayResponse, type ApiResponse } from '@/lib/api-response'
 import { normalizeRole, type AppRole } from '@/lib/roles'
 
-export type TenantManageableRole = 'STAFF_USER' | 'CARI_USER'
+export type TenantManageableRole = 'TENANT_ADMIN' | 'STAFF_USER' | 'CARI_USER'
 
 export interface User {
   id: number
@@ -14,6 +14,7 @@ export interface User {
   enabled?: boolean
   active?: boolean
   createdAt?: string | null
+  lastLoginAt?: string | null
 }
 
 export interface CreateUserRequest {
@@ -40,6 +41,12 @@ export interface TenantUserListParams {
   search?: string
   role?: TenantManageableRole
   enabled?: boolean
+}
+
+export interface ChangeOwnPasswordPayload {
+  currentPassword: string
+  newPassword: string
+  confirmPassword?: string
 }
 
 export interface TenantUserListResult {
@@ -77,6 +84,13 @@ function mapUserFromBackend(backend: any): User {
     enabled: isActive,
     active: isActive,
     createdAt: backend.createdAt ?? backend.createdDate ?? null,
+    lastLoginAt:
+      backend.lastLoginAt ??
+      backend.lastLoginDate ??
+      backend.lastLoginTime ??
+      backend.lastLogin ??
+      backend.lastSignInAt ??
+      null,
   }
 }
 
@@ -190,6 +204,21 @@ export const userService = {
 
   enableTenantUser: async (id: number): Promise<void> => {
     await apiClient.post(`/tenant-admin/users/${id}/enable`)
+  },
+
+  resetTenantUserPassword: async (id: number, newPassword: string): Promise<void> => {
+    await apiClient.post(`/tenant-admin/users/${id}/reset-password`, {
+      newPassword,
+      password: newPassword,
+    })
+  },
+
+  changeOwnPassword: async (payload: ChangeOwnPasswordPayload): Promise<void> => {
+    await apiClient.post('/me/change-own-password', {
+      currentPassword: payload.currentPassword.trim(),
+      newPassword: payload.newPassword.trim(),
+      confirmPassword: (payload.confirmPassword || payload.newPassword).trim(),
+    })
   },
 
   lookupB2BUnits: async (query?: string): Promise<B2BUnitLookupOption[]> => {

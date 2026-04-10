@@ -39,7 +39,12 @@ import { EdmVknValidatePage } from './modules/edm/EdmVknValidatePage'
 import { EdmSettingsPage } from './modules/edm/EdmSettingsPage'
 import { MaintenanceCompletionsPage } from './modules/maintenance/MaintenanceCompletionsPage'
 import { PaymentTransactionsPage } from './modules/payments/PaymentTransactionsPage'
-import { StocksPage } from './modules/stocks/StocksPage'
+import { BrandsPage } from './modules/stocks/BrandsPage'
+import { ModelsPage } from './modules/stocks/ModelsPage'
+import { StockUnitsPage } from './modules/stocks/StockUnitsPage'
+import { StockGroupsPage } from './modules/stocks/StockGroupsPage'
+import { WarehousesPage } from './modules/stocks/WarehousesPage'
+import { StockTransfersPage } from './modules/stocks/StockTransfersPage'
 import { ProposalsPage } from './modules/proposals/ProposalsPage'
 import { StatusDetectionReportsPage } from './modules/reports/StatusDetectionReportsPage'
 import { B2BUnitsPage } from './modules/cari/B2BUnitsPage'
@@ -50,6 +55,14 @@ import { B2BUnitMePage } from './modules/cari/B2BUnitMePage'
 import { FacilitiesPage } from './modules/facilities/FacilitiesPage'
 import { FacilityFormPage } from './modules/facilities/FacilityFormPage'
 import { FacilityDetailPage } from './modules/facilities/FacilityDetailPage'
+import { QuickCollectionPage } from './modules/financial/QuickCollectionPage'
+import { CollectionReceiptsPage } from './modules/financial/CollectionReceiptsPage'
+import { CollectionReceiptPrintPage } from './modules/financial/CollectionReceiptPrintPage'
+import { BanksPage } from './modules/financial/BanksPage'
+import { VatRatesPage } from './modules/financial/VatRatesPage'
+import { CashboxesPage } from './modules/definitions/CashboxesPage'
+import { CompanySettingsPage } from './modules/settings/CompanySettingsPage'
+import { ChangePasswordPage } from './modules/settings/ChangePasswordPage'
 import { SystemAdminTenantListPage } from './modules/system-admin/SystemAdminTenantListPage'
 import { SystemAdminDashboardPage } from './modules/system-admin/SystemAdminDashboardPage'
 import { SystemAdminTenantDetailPage } from './modules/system-admin/SystemAdminTenantDetailPage'
@@ -132,6 +145,14 @@ function AppRoutes() {
       />
       <Route path="/forbidden" element={<ForbiddenPage />} />
       <Route
+        path="/financial-operations/collection-receipts/print"
+        element={
+          <ProtectedRoute>
+            <CollectionReceiptPrintPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/"
         element={
           <ProtectedRoute>
@@ -161,7 +182,12 @@ function AppRoutes() {
         <Route path="edm/vkn-validate" element={<EdmVknValidatePage />} />
         <Route path="edm/settings" element={<EdmSettingsPage />} />
         <Route path="payment-transactions" element={<PaymentTransactionsPage />} />
-        <Route path="stocks" element={<StocksPage />} />
+        <Route path="stocks/brands" element={<BrandsPage />} />
+        <Route path="stocks/models" element={<ModelsPage />} />
+        <Route path="stocks/units" element={<StockUnitsPage />} />
+        <Route path="stocks/groups" element={<StockGroupsPage />} />
+        <Route path="stocks/warehouses" element={<WarehousesPage />} />
+        <Route path="stocks/transfers" element={<StockTransfersPage />} />
         <Route path="proposals" element={<ProposalsPage />} />
         <Route path="reports/status-detections" element={<StatusDetectionReportsPage />} />
         <Route
@@ -217,7 +243,8 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route path="qr-codes" element={<QrCodesPage />} />
+        <Route path="elevator-qrcodes" element={<QrCodesPage />} />
+        <Route path="qr-codes" element={<Navigate to="/elevator-qrcodes" replace />} />
         <Route path="warnings" element={<WarningsPage />} />
         <Route path="parts" element={<PartsPage />} />
         <Route path="offers" element={<OffersPage />} />
@@ -229,6 +256,27 @@ function AppRoutes() {
         <Route path="revision-standards/:standardId/articles" element={<RevisionStandardArticlesPage />} />
         <Route path="faults" element={<FaultsPage />} />
         <Route path="inspections" element={<InspectionsPage />} />
+        <Route path="financial-operations/quick-collection" element={<QuickCollectionPage />} />
+        <Route path="financial-operations/collection-receipts" element={<CollectionReceiptsPage />} />
+        <Route path="financial-operations/banks" element={<BanksPage />} />
+        <Route path="financial-operations/vat-rates" element={<VatRatesPage />} />
+        <Route path="definitions/cashboxes" element={<CashboxesPage />} />
+        <Route
+          path="settings/company"
+          element={
+            <ProtectedRoute requireRole="TENANT_ADMIN">
+              <CompanySettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="settings/change-password"
+          element={
+            <ProtectedRoute requireAnyRole={['TENANT_ADMIN', 'STAFF_USER', 'CARI_USER']}>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="payments" element={<PaymentsPage />} />
         <Route
           path="users"

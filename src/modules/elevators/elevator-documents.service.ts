@@ -29,9 +29,14 @@ export interface ElevatorContract {
   id?: number
   elevatorId: number
   elevatorName?: string
+  facilityName?: string
+  buildingName?: string
+  identityNumber?: string
   contractDate: string
   contractHtml?: string
   filePath?: string
+  attachmentPreviewUrl?: string
+  fileName?: string
 }
 
 function isMissingEndpointError(error: any): boolean {
@@ -56,6 +61,68 @@ function emptyPage<T>(page: number, size: number): SpringPage<T> {
 
 function resolveTenantApiBaseUrl(): string | undefined {
   return resolveApiBaseUrl()
+}
+
+function normalizeDateInput(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
+  const date = new Date(trimmed)
+  if (Number.isNaN(date.getTime())) return trimmed
+  return date.toISOString().slice(0, 10)
+}
+
+function normalizeContract(row: any): ElevatorContract {
+  const idCandidate = Number(row?.id)
+  const elevatorIdCandidate = Number(row?.elevatorId ?? row?.elevator?.id)
+  const elevatorNameRaw =
+    row?.elevatorName ??
+    row?.elevator?.name ??
+    row?.elevatorIdentityNumber ??
+    row?.identityNumber ??
+    row?.elevator?.identityNumber
+  const facilityNameRaw =
+    row?.facilityName ??
+    row?.buildingName ??
+    row?.elevator?.facilityName ??
+    row?.elevator?.buildingName ??
+    row?.elevator?.facility?.name
+  const identityNumberRaw = row?.identityNumber ?? row?.elevatorIdentityNumber ?? row?.elevator?.identityNumber
+
+  const contractDate = normalizeDateInput(row?.contractDate ?? row?.date ?? row?.contractAt ?? row?.createdAt)
+  const filePath = row?.filePath ?? row?.fileUrl ?? row?.attachmentUrl ?? row?.attachmentPreviewUrl
+  const attachmentPreviewUrl = row?.attachmentPreviewUrl ?? row?.filePreviewUrl ?? filePath
+  const fileName = row?.fileName ?? row?.attachmentName ?? row?.originalFileName
+
+  return {
+    id: Number.isFinite(idCandidate) && idCandidate > 0 ? idCandidate : undefined,
+    elevatorId: Number.isFinite(elevatorIdCandidate) && elevatorIdCandidate > 0 ? elevatorIdCandidate : 0,
+    elevatorName: typeof elevatorNameRaw === 'string' ? elevatorNameRaw.trim() || undefined : undefined,
+    facilityName: typeof facilityNameRaw === 'string' ? facilityNameRaw.trim() || undefined : undefined,
+    buildingName: typeof row?.buildingName === 'string' ? row.buildingName.trim() || undefined : undefined,
+    identityNumber: typeof identityNumberRaw === 'string' ? identityNumberRaw.trim() || undefined : undefined,
+    contractDate,
+    contractHtml:
+      typeof row?.contractHtml === 'string'
+        ? row.contractHtml
+        : typeof row?.content === 'string'
+          ? row.content
+          : typeof row?.contractContent === 'string'
+            ? row.contractContent
+            : '',
+    filePath: typeof filePath === 'string' ? filePath : undefined,
+    attachmentPreviewUrl: typeof attachmentPreviewUrl === 'string' ? attachmentPreviewUrl : undefined,
+    fileName: typeof fileName === 'string' ? fileName : undefined,
+  }
+}
+
+function toContractPayload(payload: ElevatorContract) {
+  return {
+    elevatorId: Number(payload.elevatorId),
+    contractDate: normalizeDateInput(payload.contractDate),
+    contractHtml: payload.contractHtml || '',
+  }
 }
 
 function normalizePageResponse<T>(payload: unknown, page: number, size: number): SpringPage<T> {
@@ -153,23 +220,72 @@ export const elevatorDocumentsService = {
 
   async getContracts(page: number, size: number, elevatorId?: number): Promise<SpringPage<ElevatorContract>> {
     try {
-      return await getPage<ElevatorContract>('/elevator-contracts', { page, size, elevatorId })
+      const result = await getPage<any>('/elevator-contracts', { page, size, elevatorId })
+      return {
+        ...result,
+        content: (result.content || []).map((row) => normalizeContract(row)),
+      }
     } catch (error: any) {
       if (isMissingEndpointError(error)) return emptyPage<ElevatorContract>(page, size)
       throw error
     }
   },
+
+  async getContractById(id: number): Promise<ElevatorContract> {
+    try {
+      const { data } = await apiClient.get<ApiResponse<unknown> | unknown>(`/elevator-contracts/${id}`, {
+        baseURL: resolveTenantApiBaseUrl(),
+      })
+      const payload = unwrapResponse(data as ApiResponse<unknown>, true) ?? data
+      return normalizeContract(payload)
+    } catch (error: any) {
+      if (!isMissingEndpointError(error) && error?.response?.status !== 404) {
+        throw error
+      }
+
+      const fallbackPage = await this.getContracts(0, 200)
+      const fallbackRow = fallbackPage.content.find((row) => row.id === id)
+      if (fallbackRow) return fallbackRow
+      throw error
+    }
+  },
+
   createContract(payload: ElevatorContract, file?: File | null): Promise<ElevatorContract> {
     return apiClient
-      .post<ApiResponse<ElevatorContract>>('/elevator-contracts', toMultipartPayload(payload, file))
-      .then((r) => unwrapResponse(r.data))
+      .post<ApiResponse<unknown>>('/elevator-contracts', toMultipartPayload(toContractPayload(payload), file))
+      .then((r) => normalizeContract(unwrapResponse(r.data)))
   },
   updateContract(id: number, payload: ElevatorContract, file?: File | null): Promise<ElevatorContract> {
     return apiClient
-      .put<ApiResponse<ElevatorContract>>(`/elevator-contracts/${id}`, toMultipartPayload(payload, file))
-      .then((r) => unwrapResponse(r.data))
+      .put<ApiResponse<unknown>>(`/elevator-contracts/${id}`, toMultipartPayload(toContractPayload(payload), file))
+      .then((r) => normalizeContract(unwrapResponse(r.data)))
   },
-  deleteContract(id: number): Promise<void> {
-    return apiClient.delete(`/elevator-contracts/${id}`).then(() => undefined)
+  async deleteContract(id: number): Promise<void> {
+    try {
+      await apiClient.delete(`/elevator-contracts/${id}`)
+      return
+    } catch (error: any) {
+      const status = error?.response?.status
+      if (status !== 404 && status !== 405) {
+        throw error
+      }
+    }
+
+    const fallbackPaths = [`/elevator-contracts/${id}/delete`, `/elevator-contracts/${id}/remove`]
+
+    for (const path of fallbackPaths) {
+      try {
+        await apiClient.post(path)
+        return
+      } catch (fallbackError: any) {
+        const fallbackStatus = fallbackError?.response?.status
+        if (fallbackStatus === 404 || fallbackStatus === 405) {
+          continue
+        }
+        throw fallbackError
+      }
+    }
+
+    throw new Error('Sözleşme silme endpointi backend tarafında bulunamadı.')
   },
 }

@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { canScopeAccessPath, type AnyRole, type AuthScopeType } from '@/lib/roles'
+import { detectTenantFromHostname } from '@/lib/tenant'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -9,7 +10,7 @@ interface ProtectedRouteProps {
   requireScopeType?: AuthScopeType
 }
 
-const CARI_ALLOWED_PREFIXES = ['/b2bunits/me', '/b2b-units', '/facilities', '/forbidden']
+const CARI_ALLOWED_PREFIXES = ['/b2bunits/me', '/b2b-units', '/facilities', '/settings/change-password', '/forbidden']
 
 function isCariAllowedPath(pathname: string): boolean {
   return CARI_ALLOWED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
@@ -18,6 +19,7 @@ function isCariAllowedPath(pathname: string): boolean {
 export function ProtectedRoute({ children, requireRole, requireAnyRole, requireScopeType }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, hasRole, hasAnyRole, user } = useAuth()
   const location = useLocation()
+  const tenantInfo = detectTenantFromHostname()
 
   if (isLoading) {
     return (
@@ -29,7 +31,7 @@ export function ProtectedRoute({ children, requireRole, requireAnyRole, requireS
 
   if (!isAuthenticated) {
     if (location.pathname.startsWith('/system-admin')) {
-      return <Navigate to="/platform/login" replace />
+      return <Navigate to={tenantInfo.requiresTenant ? '/login' : '/platform/login'} replace />
     }
     return <Navigate to="/login" replace />
   }

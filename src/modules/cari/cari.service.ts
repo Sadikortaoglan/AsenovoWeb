@@ -265,7 +265,8 @@ export interface CashCollectionPayload extends CollectionBasePayload {
 }
 
 export interface BankCollectionPayload extends CollectionBasePayload {
-  bankAccountId: number
+  bankAccountId?: number
+  bankId?: number
 }
 
 export interface CheckCollectionPayload extends CollectionBasePayload {
@@ -278,7 +279,8 @@ export interface CashPaymentPayload extends CollectionBasePayload {
 }
 
 export interface BankPaymentPayload extends CollectionBasePayload {
-  bankAccountId: number
+  bankAccountId?: number
+  bankId?: number
 }
 
 export interface CheckPaymentPayload extends CollectionBasePayload {
@@ -646,9 +648,11 @@ function toCashCollectionPayload(payload: CashCollectionPayload) {
 }
 
 function toBankCollectionPayload(payload: BankCollectionPayload) {
+  const bankId = cleanNumber(payload.bankId) ?? cleanNumber(payload.bankAccountId)
   return {
     ...toCollectionBasePayload(payload),
-    bankAccountId: cleanNumber(payload.bankAccountId),
+    bankId,
+    bankAccountId: bankId,
   }
 }
 
@@ -668,9 +672,11 @@ function toCashPaymentPayload(payload: CashPaymentPayload) {
 }
 
 function toBankPaymentPayload(payload: BankPaymentPayload) {
+  const bankId = cleanNumber(payload.bankId) ?? cleanNumber(payload.bankAccountId)
   return {
     ...toCollectionBasePayload(payload),
-    bankAccountId: cleanNumber(payload.bankAccountId),
+    bankId,
+    bankAccountId: bankId,
   }
 }
 
@@ -961,11 +967,52 @@ export const cariService = {
   },
 
   lookupBankAccounts(query?: string): Promise<LookupOption[]> {
+    const normalizeRows = (rows: unknown[]): LookupOption[] =>
+      rows
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null
+          const raw = item as Record<string, unknown>
+          const id = Number(raw.id)
+          const name = cleanString(String(raw.name ?? raw.bankName ?? '').trim())
+          const branch = cleanString(String(raw.branch ?? raw.branchName ?? '').trim())
+          if (!Number.isFinite(id) || id <= 0 || !name) return null
+          return {
+            id,
+            name: branch ? `${name} - ${branch}` : name,
+          }
+        })
+        .filter((item): item is LookupOption => item !== null)
+
     return apiClient
-      .get<ApiResponse<LookupOption[]>>('/bank-accounts/lookup', {
+      .get<ApiResponse<unknown[]> | unknown[]>('/banks/lookup', {
         params: { query },
       })
-      .then((response) => unwrapArrayResponse(response.data, true))
+      .then((response) =>
+        normalizeRows(
+          unwrapArrayResponse<unknown>(
+            response.data as ApiResponse<unknown[]> | unknown[],
+            true,
+          ),
+        ),
+      )
+      .then((rows) => {
+        if (rows.length > 0) return rows
+        return apiClient
+          .get<ApiResponse<LookupOption[]>>('/bank-accounts/lookup', {
+            params: { query },
+          })
+          .then((response) => unwrapArrayResponse(response.data, true))
+      })
+      .catch((error: any) => {
+        if (error?.response?.status !== 404 && error?.response?.status !== 405) {
+          throw error
+        }
+        return apiClient
+          .get<ApiResponse<LookupOption[]>>('/bank-accounts/lookup', {
+            params: { query },
+          })
+          .then((response) => unwrapArrayResponse(response.data, true))
+      })
   },
 
   createPurchaseInvoice(b2bUnitId: number, payload: PurchaseInvoicePayload): Promise<B2BUnitInvoice> {
