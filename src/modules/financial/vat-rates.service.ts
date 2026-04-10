@@ -100,7 +100,7 @@ function toRequestPayload(payload: VatRateFormPayload) {
 }
 
 async function listFromFallbackEndpoint(): Promise<VatRate[]> {
-  const { data } = await apiClient.get<ApiResponse<unknown[]> | unknown[]>('/stocks/vat-rates')
+  const { data } = await apiClient.get<ApiResponse<unknown[]> | unknown[]>('/vat-rates')
   return unwrapArrayResponse<unknown>(data as ApiResponse<unknown[]> | unknown[], true)
     .map((item) => normalizeVatRate(item))
     .filter((item) => Number.isFinite(item.rate))
@@ -156,7 +156,7 @@ export const vatRatesService = {
       if (!isFallbackAllowed(error)) throw error
     }
 
-    const { data } = await apiClient.post<ApiResponse<unknown>>('/stocks/vat-rates', toRequestPayload(payload))
+    const { data } = await apiClient.post<ApiResponse<unknown>>('/vat-rates', toRequestPayload(payload))
     return normalizeVatRate(unwrapResponse(data))
   },
 
@@ -169,7 +169,7 @@ export const vatRatesService = {
     }
 
     const { data } = await apiClient.put<ApiResponse<unknown>>(
-      `/stocks/vat-rates/${id}`,
+      `/vat-rates/${id}`,
       toRequestPayload(payload),
     )
     return normalizeVatRate(unwrapResponse(data))
@@ -183,7 +183,7 @@ export const vatRatesService = {
       if (!isFallbackAllowed(error)) throw error
     }
 
-    await apiClient.delete(`/stocks/vat-rates/${id}`)
+    await apiClient.delete(`/vat-rates/${id}`)
   },
 
   async lookup(query?: string): Promise<VatRate[]> {

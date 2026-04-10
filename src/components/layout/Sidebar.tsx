@@ -27,7 +27,6 @@ import {
   FileBadge2,
   FileSignature,
   Wallet,
-  Boxes,
   FileSpreadsheet,
   FileSearch,
   PanelLeftClose,
@@ -185,6 +184,12 @@ const rawMenuItems: MenuItem[] = [
         roles: ['PATRON', 'PERSONEL'] as const,
       },
       {
+        title: 'Stok Transferleri',
+        href: '/stocks/transfers',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
         title: 'Markalar',
         href: '/stocks/brands',
         icon: List,
@@ -205,6 +210,12 @@ const rawMenuItems: MenuItem[] = [
       {
         title: 'Stok Grupları',
         href: '/stocks/groups',
+        icon: List,
+        roles: ['PATRON', 'PERSONEL'] as const,
+      },
+      {
+        title: 'Depolar',
+        href: '/stocks/warehouses',
         icon: List,
         roles: ['PATRON', 'PERSONEL'] as const,
       },
@@ -380,12 +391,6 @@ const rawMenuItems: MenuItem[] = [
     title: 'Ödeme Hareketleri',
     href: '/payment-transactions',
     icon: Wallet,
-    roles: ['PATRON', 'PERSONEL'] as const,
-  },
-  {
-    title: 'Stok Kartları',
-    href: '/stocks',
-    icon: Boxes,
     roles: ['PATRON', 'PERSONEL'] as const,
   },
   {
