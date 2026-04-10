@@ -397,13 +397,19 @@ const rawMenuItems: MenuItem[] = [
   {
     title: 'Ayarlar',
     icon: Settings,
-    roles: ['PATRON'] as const,
+    roles: ['PATRON', 'PERSONEL', 'CARI_USER'] as const,
     children: [
       {
         title: 'Firma Ayarları',
         href: '/settings/company',
         icon: Settings,
         roles: ['PATRON'] as const,
+      },
+      {
+        title: 'Şifre Değiştir',
+        href: '/settings/change-password',
+        icon: Settings,
+        roles: ['PATRON', 'PERSONEL', 'CARI_USER'] as const,
       },
     ],
   },

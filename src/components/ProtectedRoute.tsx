@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
   requireScopeType?: AuthScopeType
 }
 
-const CARI_ALLOWED_PREFIXES = ['/b2bunits/me', '/b2b-units', '/facilities', '/forbidden']
+const CARI_ALLOWED_PREFIXES = ['/b2bunits/me', '/b2b-units', '/facilities', '/settings/change-password', '/forbidden']
 
 function isCariAllowedPath(pathname: string): boolean {
   return CARI_ALLOWED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))

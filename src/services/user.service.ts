@@ -46,6 +46,7 @@ export interface TenantUserListParams {
 export interface ChangeOwnPasswordPayload {
   currentPassword: string
   newPassword: string
+  confirmPassword?: string
 }
 
 export interface TenantUserListResult {
@@ -213,28 +214,11 @@ export const userService = {
   },
 
   changeOwnPassword: async (payload: ChangeOwnPasswordPayload): Promise<void> => {
-    const body = {
-      currentPassword: payload.currentPassword,
-      oldPassword: payload.currentPassword,
-      newPassword: payload.newPassword,
-      password: payload.newPassword,
-    }
-
-    try {
-      await apiClient.post('/tenant-admin/users/me/change-password', body)
-      return
-    } catch (error: any) {
-      if (error?.response?.status !== 404) throw error
-    }
-
-    try {
-      await apiClient.post('/tenant-admin/users/change-password', body)
-      return
-    } catch (error: any) {
-      if (error?.response?.status !== 404) throw error
-    }
-
-    await apiClient.post('/auth/change-password', body)
+    await apiClient.post('/me/change-own-password', {
+      currentPassword: payload.currentPassword.trim(),
+      newPassword: payload.newPassword.trim(),
+      confirmPassword: (payload.confirmPassword || payload.newPassword).trim(),
+    })
   },
 
   lookupB2BUnits: async (query?: string): Promise<B2BUnitLookupOption[]> => {

@@ -60,6 +60,7 @@ import { CollectionReceiptPrintPage } from './modules/financial/CollectionReceip
 import { BanksPage } from './modules/financial/BanksPage'
 import { CashboxesPage } from './modules/definitions/CashboxesPage'
 import { CompanySettingsPage } from './modules/settings/CompanySettingsPage'
+import { ChangePasswordPage } from './modules/settings/ChangePasswordPage'
 import { SystemAdminTenantListPage } from './modules/system-admin/SystemAdminTenantListPage'
 import { SystemAdminDashboardPage } from './modules/system-admin/SystemAdminDashboardPage'
 import { SystemAdminTenantDetailPage } from './modules/system-admin/SystemAdminTenantDetailPage'
@@ -260,6 +261,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute requireRole="TENANT_ADMIN">
               <CompanySettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="settings/change-password"
+          element={
+            <ProtectedRoute requireAnyRole={['TENANT_ADMIN', 'STAFF_USER', 'CARI_USER']}>
+              <ChangePasswordPage />
             </ProtectedRoute>
           }
         />
