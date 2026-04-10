@@ -32,6 +32,7 @@ import {
   FileSearch,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -442,7 +443,7 @@ const readFromStorage = () => {
   return null
 }
 
-const resolveTenantBrand = (userLike?: unknown): TenantBrand => {
+export const resolveTenantBrand = (userLike?: unknown): TenantBrand => {
   const userObj = (userLike && typeof userLike === 'object') ? (userLike as any) : undefined
   let name = ''
   let logoUrl: string | undefined
@@ -855,5 +856,47 @@ export function Sidebar() {
       </div>
       <NavigationContent collapsed={collapsed} />
     </aside>
+  )
+}
+
+export function MobileSidebarPanel({
+  onNavigate,
+  onClose,
+}: {
+  onNavigate?: () => void
+  onClose?: () => void
+}) {
+  const { user } = useAuth()
+  const tenantBrand = useMemo(() => resolveTenantBrand(user), [user])
+
+  return (
+    <div className="sidebar-shell sidebar-shell--mobile" aria-label="Mobil Sidebar">
+      <div className="sidebar-brand">
+        {tenantBrand.logoUrl ? (
+          <img
+            src={tenantBrand.logoUrl}
+            alt={tenantBrand.name}
+            className="sidebar-brand__logo"
+          />
+        ) : (
+          <div className="sidebar-brand__avatar" aria-hidden="true">
+            {tenantBrand.initials}
+          </div>
+        )}
+        <div className="sidebar-brand__text">
+          <h1 className="sidebar-brand__title">{tenantBrand.name}</h1>
+          <p className="sidebar-brand__subtitle">{tenantBrand.subtitle}</p>
+        </div>
+        <button
+          type="button"
+          className="sidebar-brand__close"
+          onClick={onClose}
+          aria-label="Menüyü kapat"
+        >
+          <X className="sidebar-brand__close-icon" />
+        </button>
+      </div>
+      <NavigationContent onNavigate={onNavigate} />
+    </div>
   )
 }
